@@ -1,0 +1,244 @@
+{
+  "metadata": {
+    "name": "Product Inventory",
+    "description": "Comprehensive product catalog with inventory levels, pricing, and supplier information",
+    "format": "JSON",
+    "rows": 800,
+    "category": "Inventory",
+    "size": "1.8 MB",
+    "lastUpdated": "2024-01-22",
+    "version": "1.0"
+  },
+  "data": [
+    {
+      "product_id": "PROD_001",
+      "sku": "WH-BT-001",
+      "product_name": "Wireless Bluetooth Headphones",
+      "category": "Electronics",
+      "subcategory": "Audio",
+      "brand": "AudioTech",
+      "model": "AT-WH500",
+      "description": "Premium wireless headphones with noise cancellation",
+      "specifications": {
+        "color": "Black",
+        "weight": "250g",
+        "battery_life": "30 hours",
+        "connectivity": "Bluetooth 5.0",
+        "frequency_response": "20Hz-20kHz"
+      },
+      "pricing": {
+        "cost_price": 45.00,
+        "retail_price": 89.99,
+        "wholesale_price": 65.00,
+        "currency": "USD"
+      },
+      "inventory": {
+        "quantity_on_hand": 150,
+        "reserved_quantity": 25,
+        "available_quantity": 125,
+        "reorder_level": 50,
+        "max_stock_level": 300,
+        "warehouse_location": "A-1-15"
+      },
+      "supplier": {
+        "supplier_id": "SUP_001",
+        "supplier_name": "TechSupply Co.",
+        "contact_email": "orders@techsupply.com",
+        "lead_time_days": 14,
+        "minimum_order_quantity": 50
+      },
+      "sales_data": {
+        "units_sold_last_30_days": 45,
+        "revenue_last_30_days": 4049.55,
+        "average_monthly_sales": 52
+      },
+      "created_date": "2023-01-15",
+      "last_updated": "2024-01-22",
+      "status": "Active"
+    },
+    {
+      "product_id": "PROD_002",
+      "sku": "SM-CS-002",
+      "product_name": "Smartphone Protective Case",
+      "category": "Electronics",
+      "subcategory": "Accessories",
+      "brand": "GuardPro",
+      "model": "GP-iPhone15",
+      "description": "Ultra-thin protective case for iPhone 15 series",
+      "specifications": {
+        "color": "Clear",
+        "material": "TPU + PC",
+        "thickness": "1.2mm",
+        "compatibility": "iPhone 15 Pro",
+        "features": "Drop protection, Wireless charging compatible"
+      },
+      "pricing": {
+        "cost_price": 8.50,
+        "retail_price": 24.99,
+        "wholesale_price": 16.00,
+        "currency": "USD"
+      },
+      "inventory": {
+        "quantity_on_hand": 320,
+        "reserved_quantity": 40,
+        "available_quantity": 280,
+        "reorder_level": 100,
+        "max_stock_level": 500,
+        "warehouse_location": "B-2-08"
+      },
+      "supplier": {
+        "supplier_id": "SUP_002",
+        "supplier_name": "MobileAccessories Ltd.",
+        "contact_email": "supply@mobileacc.com",
+        "lead_time_days": 7,
+        "minimum_order_quantity": 100
+      },
+      "sales_data": {
+        "units_sold_last_30_days": 78,
+        "revenue_last_30_days": 1949.22,
+        "average_monthly_sales": 85
+      },
+      "created_date": "2023-09-10",
+      "last_updated": "2024-01-22",
+      "status": "Active"
+    },
+    {
+      "product_id": "PROD_003",
+      "sku": "LS-ERG-003",
+      "product_name": "Ergonomic Laptop Stand",
+      "category": "Office",
+      "subcategory": "Furniture",
+      "brand": "ErgoDesk",
+      "model": "ED-LS100",
+      "description": "Adjustable aluminum laptop stand for improved ergonomics",
+      "specifications": {
+        "color": "Silver",
+        "material": "Aluminum alloy",
+        "weight": "1.2kg",
+        "adjustable_height": "15-25cm",
+        "max_laptop_size": "17 inches"
+      },
+      "pricing": {
+        "cost_price": 35.00,
+        "retail_price": 79.99,
+        "wholesale_price": 55.00,
+        "currency": "USD"
+      },
+      "inventory": {
+        "quantity_on_hand": 95,
+        "reserved_quantity": 15,
+        "available_quantity": 80,
+        "reorder_level": 30,
+        "max_stock_level": 150,
+        "warehouse_location": "C-1-22"
+      },
+      "supplier": {
+        "supplier_id": "SUP_003",
+        "supplier_name": "Office Solutions Inc.",
+        "contact_email": "orders@officesol.com",
+        "lead_time_days": 10,
+        "minimum_order_quantity": 25
+      },
+      "sales_data": {
+        "units_sold_last_30_days": 22,
+        "revenue_last_30_days": 1759.78,
+        "average_monthly_sales": 28
+      },
+      "created_date": "2023-05-20",
+      "last_updated": "2024-01-22",
+      "status": "Active"
+    },
+    {
+      "product_id": "PROD_004",
+      "sku": "MG-CEO-004",
+      "product_name": "Ceramic Coffee Mug",
+      "category": "Home",
+      "subcategory": "Kitchen",
+      "brand": "BrewMaster",
+      "model": "BM-CEO350",
+      "description": "Premium ceramic mug with heat retention technology",
+      "specifications": {
+        "color": "White",
+        "material": "Ceramic",
+        "capacity": "350ml",
+        "dishwasher_safe": true,
+        "microwave_safe": true
+      },
+      "pricing": {
+        "cost_price": 5.50,
+        "retail_price": 16.99,
+        "wholesale_price": 11.00,
+        "currency": "USD"
+      },
+      "inventory": {
+        "quantity_on_hand": 245,
+        "reserved_quantity": 35,
+        "available_quantity": 210,
+        "reorder_level": 75,
+        "max_stock_level": 400,
+        "warehouse_location": "D-3-11"
+      },
+      "supplier": {
+        "supplier_id": "SUP_004",
+        "supplier_name": "KitchenWare Direct",
+        "contact_email": "supply@kitchenware.com",
+        "lead_time_days": 12,
+        "minimum_order_quantity": 75
+      },
+      "sales_data": {
+        "units_sold_last_30_days": 65,
+        "revenue_last_30_days": 1104.35,
+        "average_monthly_sales": 72
+      },
+      "created_date": "2022-11-08",
+      "last_updated": "2024-01-22",
+      "status": "Active"
+    },
+    {
+      "product_id": "PROD_005",
+      "sku": "SH-RUN-005",
+      "product_name": "Professional Running Shoes",
+      "category": "Sports",
+      "subcategory": "Footwear",
+      "brand": "RunFast",
+      "model": "RF-Pro2024",
+      "description": "High-performance running shoes with advanced cushioning",
+      "specifications": {
+        "color": "Blue/White",
+        "material": "Mesh + Synthetic",
+        "sizes_available": "US 7-12",
+        "weight": "280g",
+        "drop": "8mm"
+      },
+      "pricing": {
+        "cost_price": 65.00,
+        "retail_price": 149.99,
+        "wholesale_price": 95.00,
+        "currency": "USD"
+      },
+      "inventory": {
+        "quantity_on_hand": 180,
+        "reserved_quantity": 30,
+        "available_quantity": 150,
+        "reorder_level": 60,
+        "max_stock_level": 250,
+        "warehouse_location": "E-2-05"
+      },
+      "supplier": {
+        "supplier_id": "SUP_005",
+        "supplier_name": "Athletic Gear Co.",
+        "contact_email": "orders@athleticgear.com",
+        "lead_time_days": 21,
+        "minimum_order_quantity": 40
+      },
+      "sales_data": {
+        "units_sold_last_30_days": 38,
+        "revenue_last_30_days": 5699.62,
+        "average_monthly_sales": 42
+      },
+      "created_date": "2023-03-12",
+      "last_updated": "2024-01-22",
+      "status": "Active"
+    }
+  ]
+}

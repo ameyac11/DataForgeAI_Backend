@@ -1,0 +1,354 @@
+{
+  "metadata": {
+    "name": "Medical Patient Data",
+    "description": "Anonymized patient records with medical history, treatments, and diagnostic information",
+    "format": "JSON",
+    "rows": 2000,
+    "category": "Healthcare",
+    "size": "6.5 MB",
+    "lastUpdated": "2024-01-12",
+    "version": "1.0",
+    "compliance": "HIPAA Compliant - All data anonymized"
+  },
+  "data": [
+    {
+      "patient_id": "PAT_001",
+      "demographics": {
+        "age": 45,
+        "gender": "Female",
+        "ethnicity": "Caucasian",
+        "blood_type": "A+",
+        "height_cm": 165,
+        "weight_kg": 68.5,
+        "bmi": 25.2,
+        "marital_status": "Married",
+        "occupation": "Teacher"
+      },
+      "contact_info": {
+        "zip_code": "12345",
+        "state": "CA",
+        "country": "USA",
+        "emergency_contact": "Spouse",
+        "insurance_provider": "HealthCare Plus"
+      },
+      "medical_history": {
+        "allergies": ["Penicillin", "Shellfish"],
+        "chronic_conditions": ["Hypertension", "Type 2 Diabetes"],
+        "previous_surgeries": [
+          {
+            "procedure": "Appendectomy",
+            "date": "2018-05-15",
+            "complications": "None"
+          }
+        ],
+        "family_history": ["Heart Disease", "Diabetes"],
+        "smoking_status": "Never",
+        "alcohol_consumption": "Occasional"
+      },
+      "current_medications": [
+        {
+          "medication": "Metformin",
+          "dosage": "500mg",
+          "frequency": "Twice daily",
+          "prescribed_date": "2023-01-15"
+        },
+        {
+          "medication": "Lisinopril",
+          "dosage": "10mg",
+          "frequency": "Once daily",
+          "prescribed_date": "2023-06-20"
+        }
+      ],
+      "recent_visits": [
+        {
+          "visit_id": "VIS_001_001",
+          "date": "2024-01-10",
+          "type": "Routine Checkup",
+          "chief_complaint": "Annual physical examination",
+          "diagnosis": ["Controlled Hypertension", "Controlled Diabetes"],
+          "vital_signs": {
+            "blood_pressure": "128/82",
+            "heart_rate": 72,
+            "temperature": 98.6,
+            "respiratory_rate": 16,
+            "oxygen_saturation": 98
+          },
+          "lab_results": {
+            "hba1c": 7.1,
+            "cholesterol": 185,
+            "glucose": 125
+          },
+          "treatment_plan": "Continue current medications, follow-up in 3 months"
+        }
+      ],
+      "created_date": "2022-03-10",
+      "last_updated": "2024-01-12"
+    },
+    {
+      "patient_id": "PAT_002",
+      "demographics": {
+        "age": 32,
+        "gender": "Male",
+        "ethnicity": "Hispanic",
+        "blood_type": "O-",
+        "height_cm": 178,
+        "weight_kg": 82.0,
+        "bmi": 25.9,
+        "marital_status": "Single",
+        "occupation": "Software Engineer"
+      },
+      "contact_info": {
+        "zip_code": "90210",
+        "state": "CA",
+        "country": "USA",
+        "emergency_contact": "Parent",
+        "insurance_provider": "Tech Health"
+      },
+      "medical_history": {
+        "allergies": ["Latex"],
+        "chronic_conditions": [],
+        "previous_surgeries": [],
+        "family_history": ["Asthma"],
+        "smoking_status": "Never",
+        "alcohol_consumption": "Social"
+      },
+      "current_medications": [
+        {
+          "medication": "Multivitamin",
+          "dosage": "1 tablet",
+          "frequency": "Once daily",
+          "prescribed_date": "2023-12-01"
+        }
+      ],
+      "recent_visits": [
+        {
+          "visit_id": "VIS_002_001",
+          "date": "2024-01-08",
+          "type": "Urgent Care",
+          "chief_complaint": "Acute back pain after exercise",
+          "diagnosis": ["Muscle strain"],
+          "vital_signs": {
+            "blood_pressure": "118/75",
+            "heart_rate": 68,
+            "temperature": 98.4,
+            "respiratory_rate": 14,
+            "oxygen_saturation": 99
+          },
+          "lab_results": {},
+          "treatment_plan": "Rest, ice, anti-inflammatory medication, physical therapy"
+        }
+      ],
+      "created_date": "2023-11-15",
+      "last_updated": "2024-01-12"
+    },
+    {
+      "patient_id": "PAT_003",
+      "demographics": {
+        "age": 67,
+        "gender": "Male",
+        "ethnicity": "African American",
+        "blood_type": "B+",
+        "height_cm": 175,
+        "weight_kg": 91.5,
+        "bmi": 29.9,
+        "marital_status": "Widowed",
+        "occupation": "Retired"
+      },
+      "contact_info": {
+        "zip_code": "10001",
+        "state": "NY",
+        "country": "USA",
+        "emergency_contact": "Adult Child",
+        "insurance_provider": "Medicare Plus"
+      },
+      "medical_history": {
+        "allergies": ["Aspirin"],
+        "chronic_conditions": ["Coronary Artery Disease", "Arthritis", "High Cholesterol"],
+        "previous_surgeries": [
+          {
+            "procedure": "Cardiac Stent Placement",
+            "date": "2021-09-20",
+            "complications": "None"
+          },
+          {
+            "procedure": "Knee Replacement",
+            "date": "2020-03-12",
+            "complications": "Minor infection, resolved"
+          }
+        ],
+        "family_history": ["Heart Disease", "Stroke", "Cancer"],
+        "smoking_status": "Former (quit 2019)",
+        "alcohol_consumption": "None"
+      },
+      "current_medications": [
+        {
+          "medication": "Atorvastatin",
+          "dosage": "40mg",
+          "frequency": "Once daily",
+          "prescribed_date": "2021-10-01"
+        },
+        {
+          "medication": "Clopidogrel",
+          "dosage": "75mg",
+          "frequency": "Once daily",
+          "prescribed_date": "2021-09-25"
+        },
+        {
+          "medication": "Ibuprofen",
+          "dosage": "400mg",
+          "frequency": "As needed",
+          "prescribed_date": "2023-08-10"
+        }
+      ],
+      "recent_visits": [
+        {
+          "visit_id": "VIS_003_001",
+          "date": "2024-01-05",
+          "type": "Cardiology Follow-up",
+          "chief_complaint": "Routine cardiac evaluation",
+          "diagnosis": ["Stable Coronary Artery Disease"],
+          "vital_signs": {
+            "blood_pressure": "142/88",
+            "heart_rate": 78,
+            "temperature": 98.2,
+            "respiratory_rate": 18,
+            "oxygen_saturation": 96
+          },
+          "lab_results": {
+            "cholesterol": 160,
+            "ldl": 95,
+            "hdl": 42,
+            "triglycerides": 180
+          },
+          "treatment_plan": "Continue current medications, increase exercise, follow-up in 6 months"
+        }
+      ],
+      "created_date": "2020-01-08",
+      "last_updated": "2024-01-12"
+    },
+    {
+      "patient_id": "PAT_004",
+      "demographics": {
+        "age": 28,
+        "gender": "Female",
+        "ethnicity": "Asian",
+        "blood_type": "AB+",
+        "height_cm": 162,
+        "weight_kg": 55.0,
+        "bmi": 21.0,
+        "marital_status": "Married",
+        "occupation": "Nurse"
+      },
+      "contact_info": {
+        "zip_code": "60601",
+        "state": "IL",
+        "country": "USA",
+        "emergency_contact": "Spouse",
+        "insurance_provider": "Hospital Health Plan"
+      },
+      "medical_history": {
+        "allergies": [],
+        "chronic_conditions": [],
+        "previous_surgeries": [],
+        "family_history": ["Osteoporosis"],
+        "smoking_status": "Never",
+        "alcohol_consumption": "Rare"
+      },
+      "current_medications": [
+        {
+          "medication": "Prenatal Vitamins",
+          "dosage": "1 tablet",
+          "frequency": "Once daily",
+          "prescribed_date": "2023-10-15"
+        }
+      ],
+      "recent_visits": [
+        {
+          "visit_id": "VIS_004_001",
+          "date": "2024-01-12",
+          "type": "Prenatal Care",
+          "chief_complaint": "Routine prenatal checkup - 20 weeks",
+          "diagnosis": ["Normal pregnancy progression"],
+          "vital_signs": {
+            "blood_pressure": "110/68",
+            "heart_rate": 82,
+            "temperature": 98.7,
+            "respiratory_rate": 16,
+            "oxygen_saturation": 99
+          },
+          "lab_results": {
+            "hemoglobin": 12.8,
+            "glucose": 88,
+            "protein": "Negative"
+          },
+          "treatment_plan": "Continue prenatal vitamins, next appointment in 4 weeks"
+        }
+      ],
+      "created_date": "2023-10-01",
+      "last_updated": "2024-01-12"
+    },
+    {
+      "patient_id": "PAT_005",
+      "demographics": {
+        "age": 15,
+        "gender": "Male",
+        "ethnicity": "Caucasian",
+        "blood_type": "O+",
+        "height_cm": 168,
+        "weight_kg": 58.0,
+        "bmi": 20.5,
+        "marital_status": "Single",
+        "occupation": "Student"
+      },
+      "contact_info": {
+        "zip_code": "33101",
+        "state": "FL",
+        "country": "USA",
+        "emergency_contact": "Parent",
+        "insurance_provider": "Family Health Plus"
+      },
+      "medical_history": {
+        "allergies": ["Peanuts"],
+        "chronic_conditions": ["Asthma"],
+        "previous_surgeries": [],
+        "family_history": ["Asthma", "Allergies"],
+        "smoking_status": "Never",
+        "alcohol_consumption": "None"
+      },
+      "current_medications": [
+        {
+          "medication": "Albuterol Inhaler",
+          "dosage": "2 puffs",
+          "frequency": "As needed",
+          "prescribed_date": "2023-09-01"
+        },
+        {
+          "medication": "EpiPen",
+          "dosage": "0.3mg",
+          "frequency": "Emergency use only",
+          "prescribed_date": "2023-08-15"
+        }
+      ],
+      "recent_visits": [
+        {
+          "visit_id": "VIS_005_001",
+          "date": "2024-01-09",
+          "type": "School Physical",
+          "chief_complaint": "Annual school sports physical",
+          "diagnosis": ["Controlled Asthma", "Cleared for sports participation"],
+          "vital_signs": {
+            "blood_pressure": "105/65",
+            "heart_rate": 70,
+            "temperature": 98.5,
+            "respiratory_rate": 14,
+            "oxygen_saturation": 99
+          },
+          "lab_results": {},
+          "treatment_plan": "Continue current asthma management, cleared for athletic participation"
+        }
+      ],
+      "created_date": "2022-08-20",
+      "last_updated": "2024-01-12"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+transaction_id,store_id,store_name,customer_id,customer_name,product_sku,product_name,category,quantity,unit_price,total_amount,discount_percent,final_amount,payment_method,transaction_date,transaction_time,cashier_id
+TXN_001,STR_101,Downtown Flagship,CUST_1001,John Smith,SKU_10001,Wireless Headphones,Electronics,1,89.99,89.99,10,80.99,Credit Card,2024-01-15,10:23:45,EMP_201
+TXN_002,STR_102,Mall Express,CUST_1002,Emma Johnson,SKU_10025,Organic Coffee Beans,Grocery,2,24.99,49.98,0,49.98,Cash,2024-01-15,11:05:12,EMP_205
+TXN_003,STR_101,Downtown Flagship,CUST_1003,Michael Brown,SKU_10042,Running Shoes,Footwear,1,129.99,129.99,15,110.49,Debit Card,2024-01-15,12:34:56,EMP_202
+TXN_004,STR_103,Suburban Standard,CUST_1004,Sarah Davis,SKU_10008,Smart Watch,Electronics,1,299.99,299.99,5,284.99,Credit Card,2024-01-15,14:15:30,EMP_210
+TXN_005,STR_102,Mall Express,CUST_1005,David Wilson,SKU_10055,Yoga Mat,Sports,1,45.99,45.99,0,45.99,Mobile Payment,2024-01-15,15:42:18,EMP_206
+TXN_006,STR_104,Airport Outlet,CUST_1006,Lisa Anderson,SKU_10033,Travel Backpack,Luggage,1,79.99,79.99,20,63.99,Credit Card,2024-01-15,16:08:45,EMP_215
+TXN_007,STR_101,Downtown Flagship,CUST_1007,James Taylor,SKU_10067,Bluetooth Speaker,Electronics,2,59.99,119.98,0,119.98,Debit Card,2024-01-16,09:12:33,EMP_201
+TXN_008,STR_103,Suburban Standard,CUST_1008,Jennifer Martinez,SKU_10089,Kitchen Blender,Appliances,1,149.99,149.99,10,134.99,Credit Card,2024-01-16,10:45:22,EMP_211
+TXN_009,STR_102,Mall Express,CUST_1009,Robert Garcia,SKU_10012,Protein Powder,Health,1,54.99,54.99,0,54.99,Cash,2024-01-16,11:30:15,EMP_205
+TXN_010,STR_105,Beach Standard,CUST_1010,Amanda Thompson,SKU_10078,Sunglasses,Accessories,1,89.99,89.99,25,67.49,Mobile Payment,2024-01-16,13:22:48,EMP_220
+TXN_011,STR_101,Downtown Flagship,CUST_1011,Christopher Lee,SKU_10045,Laptop Stand,Electronics,1,39.99,39.99,0,39.99,Debit Card,2024-01-16,14:55:10,EMP_203
+TXN_012,STR_104,Airport Outlet,CUST_1012,Michelle White,SKU_10099,Neck Pillow,Travel,3,19.99,59.97,15,50.97,Credit Card,2024-01-16,16:18:33,EMP_216
+TXN_013,STR_103,Suburban Standard,CUST_1013,Daniel Harris,SKU_10023,Wireless Charger,Electronics,1,29.99,29.99,0,29.99,Cash,2024-01-17,09:45:27,EMP_210
+TXN_014,STR_102,Mall Express,CUST_1014,Ashley Clark,SKU_10056,Fitness Tracker,Electronics,1,79.99,79.99,10,71.99,Credit Card,2024-01-17,10:33:42,EMP_207
+TXN_015,STR_101,Downtown Flagship,CUST_1015,Matthew Lewis,SKU_10034,Designer Wallet,Accessories,1,159.99,159.99,0,159.99,Credit Card,2024-01-17,12:08:55,EMP_201
+TXN_016,STR_105,Beach Standard,CUST_1016,Nicole Robinson,SKU_10088,Beach Towel,Home,2,24.99,49.98,0,49.98,Debit Card,2024-01-17,14:22:18,EMP_221
+TXN_017,STR_104,Airport Outlet,CUST_1017,Andrew Walker,SKU_10011,Portable Charger,Electronics,1,34.99,34.99,5,33.24,Mobile Payment,2024-01-17,15:45:33,EMP_215
+TXN_018,STR_103,Suburban Standard,CUST_1018,Stephanie Hall,SKU_10066,Air Fryer,Appliances,1,119.99,119.99,20,95.99,Credit Card,2024-01-17,17:12:45,EMP_212
+TXN_019,STR_101,Downtown Flagship,CUST_1019,Joshua Young,SKU_10044,Gaming Mouse,Electronics,1,69.99,69.99,0,69.99,Debit Card,2024-01-18,09:58:12,EMP_202
+TXN_020,STR_102,Mall Express,CUST_1020,Lauren King,SKU_10077,Aromatherapy Diffuser,Home,1,44.99,44.99,10,40.49,Cash,2024-01-18,11:25:38,EMP_206

@@ -1,0 +1,320 @@
+{
+  "metadata": {
+    "name": "Social Media Analytics",
+    "description": "Social media engagement data with posts, likes, shares, and user interactions",
+    "format": "JSON",
+    "rows": 3200,
+    "category": "Marketing",
+    "size": "5.8 MB",
+    "lastUpdated": "2024-02-02",
+    "version": "1.0"
+  },
+  "data": [
+    {
+      "post_id": "POST_001",
+      "platform": "Instagram",
+      "account_handle": "@techstartup_2024",
+      "post_type": "image",
+      "content": {
+        "caption": "Excited to announce our new product launch! 🚀 #innovation #tech #startup",
+        "hashtags": ["#innovation", "#tech", "#startup", "#product", "#launch"],
+        "mentions": ["@investors", "@techcrunch"],
+        "image_url": "https://example.com/images/product_launch.jpg",
+        "alt_text": "New product showcase with modern design"
+      },
+      "metrics": {
+        "likes": 1245,
+        "comments": 87,
+        "shares": 156,
+        "saves": 234,
+        "reach": 12500,
+        "impressions": 18750,
+        "engagement_rate": 0.138
+      },
+      "audience_demographics": {
+        "age_groups": {
+          "18-24": 0.25,
+          "25-34": 0.45,
+          "35-44": 0.20,
+          "45-54": 0.08,
+          "55+": 0.02
+        },
+        "gender": {
+          "male": 0.62,
+          "female": 0.36,
+          "other": 0.02
+        },
+        "top_locations": ["United States", "Canada", "United Kingdom", "Australia", "Germany"]
+      },
+      "posting_details": {
+        "posted_at": "2024-02-01T10:30:00Z",
+        "timezone": "PST",
+        "optimal_time": true,
+        "scheduled": true
+      },
+      "performance_tracking": {
+        "1_hour": {"likes": 156, "comments": 12, "shares": 23},
+        "24_hours": {"likes": 892, "comments": 65, "shares": 134},
+        "7_days": {"likes": 1245, "comments": 87, "shares": 156}
+      }
+    },
+    {
+      "post_id": "POST_002",
+      "platform": "LinkedIn",
+      "account_handle": "techstartup-company",
+      "post_type": "article",
+      "content": {
+        "title": "The Future of AI in Business: 5 Key Trends to Watch",
+        "excerpt": "Artificial Intelligence is reshaping how businesses operate. Here are the top trends every entrepreneur should know about.",
+        "article_url": "https://blog.company.com/ai-business-trends-2024",
+        "hashtags": ["#AI", "#Business", "#Technology", "#Future", "#Trends"],
+        "mentions": ["@business_insider", "@forbes"]
+      },
+      "metrics": {
+        "likes": 567,
+        "comments": 34,
+        "shares": 89,
+        "saves": 145,
+        "reach": 8900,
+        "impressions": 13450,
+        "engagement_rate": 0.095,
+        "click_through_rate": 0.034
+      },
+      "audience_demographics": {
+        "age_groups": {
+          "18-24": 0.15,
+          "25-34": 0.40,
+          "35-44": 0.30,
+          "45-54": 0.12,
+          "55+": 0.03
+        },
+        "gender": {
+          "male": 0.58,
+          "female": 0.40,
+          "other": 0.02
+        },
+        "industries": ["Technology", "Finance", "Consulting", "Marketing", "Healthcare"],
+        "job_levels": ["Entry", "Mid", "Senior", "Executive", "Director"]
+      },
+      "posting_details": {
+        "posted_at": "2024-02-02T08:00:00Z",
+        "timezone": "EST",
+        "optimal_time": true,
+        "scheduled": false
+      },
+      "performance_tracking": {
+        "1_hour": {"likes": 78, "comments": 5, "shares": 12},
+        "24_hours": {"likes": 423, "comments": 28, "shares": 67},
+        "7_days": {"likes": 567, "comments": 34, "shares": 89}
+      }
+    },
+    {
+      "post_id": "POST_003",
+      "platform": "Twitter",
+      "account_handle": "@techstartup2024",
+      "post_type": "tweet",
+      "content": {
+        "text": "Just had an amazing conversation with @industry_leader about the future of remote work. Key takeaway: it's all about balance and technology integration. What's your take? 🤔 #RemoteWork #Future #WorkLifeBalance",
+        "hashtags": ["#RemoteWork", "#Future", "#WorkLifeBalance"],
+        "mentions": ["@industry_leader"],
+        "thread": false,
+        "reply_to": null
+      },
+      "metrics": {
+        "likes": 234,
+        "retweets": 67,
+        "replies": 23,
+        "quote_tweets": 12,
+        "impressions": 5600,
+        "engagement_rate": 0.060,
+        "link_clicks": 0
+      },
+      "audience_demographics": {
+        "age_groups": {
+          "18-24": 0.30,
+          "25-34": 0.40,
+          "35-44": 0.20,
+          "45-54": 0.08,
+          "55+": 0.02
+        },
+        "gender": {
+          "male": 0.55,
+          "female": 0.43,
+          "other": 0.02
+        },
+        "interests": ["Technology", "Business", "Startups", "Remote Work", "Innovation"]
+      },
+      "posting_details": {
+        "posted_at": "2024-02-02T14:22:00Z",
+        "timezone": "CST",
+        "optimal_time": false,
+        "scheduled": false
+      },
+      "performance_tracking": {
+        "1_hour": {"likes": 45, "retweets": 12, "replies": 8},
+        "24_hours": {"likes": 198, "retweets": 56, "replies": 20},
+        "7_days": {"likes": 234, "retweets": 67, "replies": 23}
+      }
+    },
+    {
+      "post_id": "POST_004",
+      "platform": "Facebook",
+      "account_handle": "TechStartup2024",
+      "post_type": "video",
+      "content": {
+        "caption": "Behind the scenes at our office! Meet the amazing team building the future of technology. We're hiring! 🎥✨ #TeamSpotlight #Hiring #CompanyCulture",
+        "hashtags": ["#TeamSpotlight", "#Hiring", "#CompanyCulture", "#BehindTheScenes"],
+        "mentions": [],
+        "video_url": "https://example.com/videos/team_spotlight.mp4",
+        "video_length": 120,
+        "video_thumbnail": "https://example.com/thumbnails/team_spotlight.jpg"
+      },
+      "metrics": {
+        "likes": 456,
+        "comments": 28,
+        "shares": 45,
+        "saves": 67,
+        "reach": 7800,
+        "impressions": 11200,
+        "engagement_rate": 0.076,
+        "video_views": 3400,
+        "video_completion_rate": 0.72
+      },
+      "audience_demographics": {
+        "age_groups": {
+          "18-24": 0.22,
+          "25-34": 0.38,
+          "35-44": 0.25,
+          "45-54": 0.12,
+          "55+": 0.03
+        },
+        "gender": {
+          "male": 0.52,
+          "female": 0.46,
+          "other": 0.02
+        },
+        "top_locations": ["United States", "India", "United Kingdom", "Canada", "Australia"]
+      },
+      "posting_details": {
+        "posted_at": "2024-02-01T16:45:00Z",
+        "timezone": "PST",
+        "optimal_time": true,
+        "scheduled": true
+      },
+      "performance_tracking": {
+        "1_hour": {"likes": 89, "comments": 7, "shares": 12, "video_views": 890},
+        "24_hours": {"likes": 367, "comments": 22, "shares": 38, "video_views": 2800},
+        "7_days": {"likes": 456, "comments": 28, "shares": 45, "video_views": 3400}
+      }
+    },
+    {
+      "post_id": "POST_005",
+      "platform": "TikTok",
+      "account_handle": "@techstartup_official",
+      "post_type": "video",
+      "content": {
+        "caption": "POV: When your code finally works after 3 hours of debugging 😅 #DeveloperLife #Coding #TechHumor #Programming",
+        "hashtags": ["#DeveloperLife", "#Coding", "#TechHumor", "#Programming", "#POV"],
+        "mentions": [],
+        "sound": "Original Sound - techstartup_official",
+        "video_effects": ["Timer", "Trending"],
+        "video_length": 15
+      },
+      "metrics": {
+        "likes": 2345,
+        "comments": 156,
+        "shares": 234,
+        "saves": 345,
+        "views": 45600,
+        "engagement_rate": 0.068,
+        "completion_rate": 0.85,
+        "shares_to_views_ratio": 0.005
+      },
+      "audience_demographics": {
+        "age_groups": {
+          "18-24": 0.45,
+          "25-34": 0.35,
+          "35-44": 0.15,
+          "45-54": 0.04,
+          "55+": 0.01
+        },
+        "gender": {
+          "male": 0.68,
+          "female": 0.30,
+          "other": 0.02
+        },
+        "interests": ["Technology", "Programming", "Humor", "Education", "Career"]
+      },
+      "posting_details": {
+        "posted_at": "2024-02-02T19:30:00Z",
+        "timezone": "EST",
+        "optimal_time": true,
+        "scheduled": false
+      },
+      "performance_tracking": {
+        "1_hour": {"likes": 567, "comments": 34, "shares": 67, "views": 12300},
+        "24_hours": {"likes": 1890, "comments": 123, "shares": 189, "views": 38900},
+        "7_days": {"likes": 2345, "comments": 156, "shares": 234, "views": 45600}
+      }
+    },
+    {
+      "post_id": "POST_006",
+      "platform": "YouTube",
+      "account_handle": "TechStartup2024",
+      "post_type": "video",
+      "content": {
+        "title": "How We Built Our MVP in 30 Days - Startup Journey",
+        "description": "Join us as we share the complete journey of building our minimum viable product from scratch. Learn about our challenges, victories, and key lessons.",
+        "tags": ["startup", "MVP", "product development", "entrepreneurship", "tech"],
+        "category": "Science & Technology",
+        "video_length": 720,
+        "thumbnail": "https://example.com/thumbnails/mvp_journey.jpg"
+      },
+      "metrics": {
+        "views": 12450,
+        "likes": 678,
+        "dislikes": 23,
+        "comments": 89,
+        "shares": 145,
+        "subscribers_gained": 234,
+        "watch_time_hours": 3200,
+        "engagement_rate": 0.078,
+        "click_through_rate": 0.045,
+        "average_view_duration": 420
+      },
+      "audience_demographics": {
+        "age_groups": {
+          "18-24": 0.25,
+          "25-34": 0.45,
+          "35-44": 0.20,
+          "45-54": 0.08,
+          "55+": 0.02
+        },
+        "gender": {
+          "male": 0.72,
+          "female": 0.26,
+          "other": 0.02
+        },
+        "top_countries": ["United States", "India", "United Kingdom", "Canada", "Germany"]
+      },
+      "posting_details": {
+        "posted_at": "2024-02-01T12:00:00Z",
+        "timezone": "UTC",
+        "optimal_time": true,
+        "scheduled": true,
+        "premiere": false
+      },
+      "performance_tracking": {
+        "1_hour": {"views": 567, "likes": 45, "comments": 12},
+        "24_hours": {"views": 8900, "likes": 456, "comments": 67},
+        "7_days": {"views": 12450, "likes": 678, "comments": 89}
+      },
+      "monetization": {
+        "ad_revenue": 45.67,
+        "channel_memberships": 12.34,
+        "super_chat": 8.90,
+        "merchandise": 23.45
+      }
+    }
+  ]
+}

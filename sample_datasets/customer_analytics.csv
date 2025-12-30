@@ -1,0 +1,21 @@
+customer_id,first_name,last_name,email,phone,age,gender,city,state,country,income_bracket,education,occupation,total_orders,total_spent,average_order_value,last_purchase_date,email_open_rate,click_through_rate,customer_segment,lifetime_value
+CUST_001,Jennifer,Williams,jennifer.williams@email.com,+1-555-2001,32,Female,Seattle,WA,USA,$50k-$75k,Bachelor's Degree,Marketing Manager,24,2847.50,118.65,2024-01-10,0.72,0.15,Premium,3500.00
+CUST_002,Michael,Thompson,michael.thompson@email.com,+1-555-2002,45,Male,Portland,OR,USA,$75k-$100k,Master's Degree,Software Engineer,42,5621.75,133.85,2024-01-15,0.65,0.22,VIP,7200.00
+CUST_003,Sarah,Anderson,sarah.anderson@email.com,+1-555-2003,28,Female,San Francisco,CA,USA,$100k+,Bachelor's Degree,Product Manager,18,1956.30,108.68,2024-01-08,0.58,0.12,Standard,2400.00
+CUST_004,David,Martinez,david.martinez@email.com,+1-555-2004,38,Male,Los Angeles,CA,USA,$50k-$75k,Associate Degree,Sales Representative,31,3245.90,104.71,2024-01-12,0.81,0.28,Premium,4100.00
+CUST_005,Emily,Brown,emily.brown@email.com,+1-555-2005,52,Female,Denver,CO,USA,$75k-$100k,Doctorate,University Professor,56,8932.40,159.51,2024-01-18,0.45,0.08,VIP,11500.00
+CUST_006,James,Wilson,james.wilson@email.com,+1-555-2006,29,Male,Austin,TX,USA,$50k-$75k,Bachelor's Degree,Financial Analyst,15,1234.50,82.30,2024-01-05,0.69,0.19,Standard,1500.00
+CUST_007,Amanda,Taylor,amanda.taylor@email.com,+1-555-2007,41,Female,Chicago,IL,USA,$100k+,MBA,VP of Operations,67,12456.80,185.92,2024-01-20,0.78,0.31,VIP,15800.00
+CUST_008,Robert,Garcia,robert.garcia@email.com,+1-555-2008,35,Male,Miami,FL,USA,$75k-$100k,Bachelor's Degree,Architect,28,3567.25,127.40,2024-01-14,0.62,0.16,Premium,4500.00
+CUST_009,Jessica,Lee,jessica.lee@email.com,+1-555-2009,26,Female,New York,NY,USA,$50k-$75k,Bachelor's Degree,UX Designer,12,987.60,82.30,2024-01-02,0.85,0.25,Standard,1200.00
+CUST_010,Christopher,Harris,christopher.harris@email.com,+1-555-2010,48,Male,Boston,MA,USA,$100k+,Master's Degree,CTO,89,18765.30,210.84,2024-01-19,0.71,0.34,VIP,24000.00
+CUST_011,Michelle,Clark,michelle.clark@email.com,+1-555-2011,33,Female,Phoenix,AZ,USA,$50k-$75k,Bachelor's Degree,HR Manager,22,2156.40,98.02,2024-01-11,0.67,0.14,Premium,2700.00
+CUST_012,Daniel,Lewis,daniel.lewis@email.com,+1-555-2012,39,Male,San Diego,CA,USA,$75k-$100k,Master's Degree,Data Scientist,35,4823.70,137.82,2024-01-16,0.74,0.27,VIP,6200.00
+CUST_013,Ashley,Robinson,ashley.robinson@email.com,+1-555-2013,31,Female,Atlanta,GA,USA,$50k-$75k,Bachelor's Degree,Account Manager,19,1678.90,88.36,2024-01-09,0.59,0.11,Standard,2100.00
+CUST_014,Matthew,Walker,matthew.walker@email.com,+1-555-2014,44,Male,Dallas,TX,USA,$100k+,MBA,CFO,72,15234.60,211.59,2024-01-17,0.82,0.38,VIP,19500.00
+CUST_015,Stephanie,Hall,stephanie.hall@email.com,+1-555-2015,27,Female,Nashville,TN,USA,$50k-$75k,Bachelor's Degree,Content Creator,14,1123.40,80.24,2024-01-06,0.91,0.42,Standard,1400.00
+CUST_016,Andrew,Young,andrew.young@email.com,+1-555-2016,36,Male,Minneapolis,MN,USA,$75k-$100k,Master's Degree,Research Scientist,29,3890.50,134.16,2024-01-13,0.68,0.20,Premium,4900.00
+CUST_017,Nicole,King,nicole.king@email.com,+1-555-2017,42,Female,Detroit,MI,USA,$50k-$75k,Associate Degree,Office Manager,25,2345.80,93.83,2024-01-07,0.54,0.09,Standard,2900.00
+CUST_018,Joshua,Wright,joshua.wright@email.com,+1-555-2018,30,Male,Philadelphia,PA,USA,$75k-$100k,Bachelor's Degree,Investment Banker,48,7654.30,159.46,2024-01-21,0.76,0.29,VIP,9800.00
+CUST_019,Lauren,Lopez,lauren.lopez@email.com,+1-555-2019,37,Female,Houston,TX,USA,$100k+,Doctorate,Medical Director,61,11234.70,184.18,2024-01-22,0.63,0.18,VIP,14400.00
+CUST_020,Ryan,Hill,ryan.hill@email.com,+1-555-2020,25,Male,Orlando,FL,USA,$25k-$50k,Bachelor's Degree,Junior Developer,8,567.20,70.90,2024-01-03,0.88,0.35,New,700.00

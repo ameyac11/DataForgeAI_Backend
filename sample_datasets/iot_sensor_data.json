@@ -1,0 +1,391 @@
+{
+  "metadata": {
+    "name": "IoT Sensor Data",
+    "description": "Time-series data from IoT devices including temperature, humidity, and environmental sensors",
+    "format": "JSON",
+    "rows": 5000,
+    "category": "IoT",
+    "size": "8.1 MB",
+    "lastUpdated": "2024-01-30",
+    "version": "1.0"
+  },
+  "data": [
+    {
+      "sensor_id": "TEMP_001",
+      "device_name": "Office Temperature Sensor",
+      "location": {
+        "building": "Main Office",
+        "floor": 2,
+        "room": "Conference Room A",
+        "coordinates": {
+          "latitude": 37.7749,
+          "longitude": -122.4194
+        }
+      },
+      "timestamp": "2024-01-30T08:00:00Z",
+      "measurements": {
+        "temperature": {
+          "value": 22.5,
+          "unit": "Celsius",
+          "quality": "Good"
+        },
+        "humidity": {
+          "value": 45.2,
+          "unit": "Percentage",
+          "quality": "Good"
+        },
+        "pressure": {
+          "value": 1013.25,
+          "unit": "hPa",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": 85,
+        "signal_strength": -65,
+        "last_maintenance": "2024-01-15",
+        "firmware_version": "2.1.3"
+      },
+      "alerts": []
+    },
+    {
+      "sensor_id": "HUM_002",
+      "device_name": "Warehouse Humidity Monitor",
+      "location": {
+        "building": "Warehouse B",
+        "floor": 1,
+        "room": "Storage Area 1",
+        "coordinates": {
+          "latitude": 37.7849,
+          "longitude": -122.4094
+        }
+      },
+      "timestamp": "2024-01-30T08:05:00Z",
+      "measurements": {
+        "temperature": {
+          "value": 18.7,
+          "unit": "Celsius",
+          "quality": "Good"
+        },
+        "humidity": {
+          "value": 62.8,
+          "unit": "Percentage",
+          "quality": "Warning"
+        },
+        "air_quality": {
+          "value": 78,
+          "unit": "AQI",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": 92,
+        "signal_strength": -58,
+        "last_maintenance": "2024-01-20",
+        "firmware_version": "2.0.8"
+      },
+      "alerts": [
+        {
+          "type": "Warning",
+          "message": "Humidity level above normal range",
+          "timestamp": "2024-01-30T08:05:00Z"
+        }
+      ]
+    },
+    {
+      "sensor_id": "MOTION_003",
+      "device_name": "Security Motion Detector",
+      "location": {
+        "building": "Main Office",
+        "floor": 1,
+        "room": "Lobby",
+        "coordinates": {
+          "latitude": 37.7739,
+          "longitude": -122.4184
+        }
+      },
+      "timestamp": "2024-01-30T08:10:00Z",
+      "measurements": {
+        "motion_detected": {
+          "value": true,
+          "unit": "Boolean",
+          "quality": "Good"
+        },
+        "light_level": {
+          "value": 450,
+          "unit": "Lux",
+          "quality": "Good"
+        },
+        "sound_level": {
+          "value": 42,
+          "unit": "dB",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": 78,
+        "signal_strength": -72,
+        "last_maintenance": "2024-01-10",
+        "firmware_version": "1.9.2"
+      },
+      "alerts": [
+        {
+          "type": "Info",
+          "message": "Motion detected in lobby",
+          "timestamp": "2024-01-30T08:10:00Z"
+        }
+      ]
+    },
+    {
+      "sensor_id": "AIR_004",
+      "device_name": "Air Quality Monitor",
+      "location": {
+        "building": "Research Lab",
+        "floor": 3,
+        "room": "Lab Room 301",
+        "coordinates": {
+          "latitude": 37.7759,
+          "longitude": -122.4204
+        }
+      },
+      "timestamp": "2024-01-30T08:15:00Z",
+      "measurements": {
+        "temperature": {
+          "value": 21.2,
+          "unit": "Celsius",
+          "quality": "Good"
+        },
+        "humidity": {
+          "value": 38.5,
+          "unit": "Percentage",
+          "quality": "Good"
+        },
+        "co2_level": {
+          "value": 420,
+          "unit": "ppm",
+          "quality": "Good"
+        },
+        "particulate_matter": {
+          "pm2_5": 12,
+          "pm10": 18,
+          "unit": "μg/m³",
+          "quality": "Good"
+        },
+        "volatile_organic_compounds": {
+          "value": 0.3,
+          "unit": "mg/m³",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": 88,
+        "signal_strength": -61,
+        "last_maintenance": "2024-01-25",
+        "firmware_version": "3.2.1"
+      },
+      "alerts": []
+    },
+    {
+      "sensor_id": "WATER_005",
+      "device_name": "Water Quality Sensor",
+      "location": {
+        "building": "Production Facility",
+        "floor": 1,
+        "room": "Water Treatment",
+        "coordinates": {
+          "latitude": 37.7769,
+          "longitude": -122.4214
+        }
+      },
+      "timestamp": "2024-01-30T08:20:00Z",
+      "measurements": {
+        "temperature": {
+          "value": 16.8,
+          "unit": "Celsius",
+          "quality": "Good"
+        },
+        "ph_level": {
+          "value": 7.2,
+          "unit": "pH",
+          "quality": "Good"
+        },
+        "dissolved_oxygen": {
+          "value": 8.5,
+          "unit": "mg/L",
+          "quality": "Good"
+        },
+        "turbidity": {
+          "value": 2.1,
+          "unit": "NTU",
+          "quality": "Good"
+        },
+        "conductivity": {
+          "value": 245,
+          "unit": "μS/cm",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": 94,
+        "signal_strength": -55,
+        "last_maintenance": "2024-01-28",
+        "firmware_version": "2.3.4"
+      },
+      "alerts": []
+    },
+    {
+      "sensor_id": "ENERGY_006",
+      "device_name": "Smart Energy Meter",
+      "location": {
+        "building": "Main Office",
+        "floor": 0,
+        "room": "Electrical Room",
+        "coordinates": {
+          "latitude": 37.7749,
+          "longitude": -122.4194
+        }
+      },
+      "timestamp": "2024-01-30T08:25:00Z",
+      "measurements": {
+        "power_consumption": {
+          "value": 45.7,
+          "unit": "kW",
+          "quality": "Good"
+        },
+        "voltage": {
+          "phase_a": 240.2,
+          "phase_b": 239.8,
+          "phase_c": 240.5,
+          "unit": "V",
+          "quality": "Good"
+        },
+        "current": {
+          "phase_a": 63.2,
+          "phase_b": 61.8,
+          "phase_c": 64.1,
+          "unit": "A",
+          "quality": "Good"
+        },
+        "power_factor": {
+          "value": 0.92,
+          "unit": "Dimensionless",
+          "quality": "Good"
+        },
+        "frequency": {
+          "value": 60.0,
+          "unit": "Hz",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": null,
+        "signal_strength": -68,
+        "last_maintenance": "2024-01-12",
+        "firmware_version": "4.1.0"
+      },
+      "alerts": []
+    },
+    {
+      "sensor_id": "VIBR_007",
+      "device_name": "Vibration Monitor",
+      "location": {
+        "building": "Production Facility",
+        "floor": 1,
+        "room": "Machine Shop",
+        "coordinates": {
+          "latitude": 37.7779,
+          "longitude": -122.4224
+        }
+      },
+      "timestamp": "2024-01-30T08:30:00Z",
+      "measurements": {
+        "vibration_x": {
+          "value": 2.3,
+          "unit": "mm/s",
+          "quality": "Good"
+        },
+        "vibration_y": {
+          "value": 1.8,
+          "unit": "mm/s",
+          "quality": "Good"
+        },
+        "vibration_z": {
+          "value": 3.1,
+          "unit": "mm/s",
+          "quality": "Warning"
+        },
+        "acceleration": {
+          "value": 0.8,
+          "unit": "g",
+          "quality": "Good"
+        },
+        "frequency_peak": {
+          "value": 125,
+          "unit": "Hz",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": 76,
+        "signal_strength": -74,
+        "last_maintenance": "2024-01-18",
+        "firmware_version": "1.8.7"
+      },
+      "alerts": [
+        {
+          "type": "Warning",
+          "message": "Z-axis vibration above normal threshold",
+          "timestamp": "2024-01-30T08:30:00Z"
+        }
+      ]
+    },
+    {
+      "sensor_id": "GPS_008",
+      "device_name": "Vehicle Tracking Device",
+      "location": {
+        "building": "Mobile Unit",
+        "floor": null,
+        "room": "Fleet Vehicle 15",
+        "coordinates": {
+          "latitude": 37.7889,
+          "longitude": -122.4089
+        }
+      },
+      "timestamp": "2024-01-30T08:35:00Z",
+      "measurements": {
+        "speed": {
+          "value": 45.2,
+          "unit": "km/h",
+          "quality": "Good"
+        },
+        "heading": {
+          "value": 278,
+          "unit": "degrees",
+          "quality": "Good"
+        },
+        "altitude": {
+          "value": 12,
+          "unit": "m",
+          "quality": "Good"
+        },
+        "fuel_level": {
+          "value": 67,
+          "unit": "Percentage",
+          "quality": "Good"
+        },
+        "engine_temperature": {
+          "value": 92,
+          "unit": "Celsius",
+          "quality": "Good"
+        }
+      },
+      "device_status": {
+        "battery_level": 100,
+        "signal_strength": -52,
+        "last_maintenance": "2024-01-22",
+        "firmware_version": "5.0.2"
+      },
+      "alerts": []
+    }
+  ]
+}

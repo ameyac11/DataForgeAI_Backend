@@ -1,0 +1,38 @@
+# Web Framework & Server
+fastapi
+uvicorn
+
+# Environment & Configuration
+python-dotenv
+
+# AI & ML
+azure-ai-inference
+
+# Data Validation & Serialization
+pydantic
+email-validator
+
+# HTTP & API
+requests
+python-multipart
+httpx
+
+# Authentication & Security
+passlib[bcrypt]
+python-jose[cryptography]
+
+# Database
+pymongo
+motor
+redis
+pytz
+
+# Data Processing & Analytics
+pandas
+numpy
+openpyxl
+scipy
+pyarrow
+
+# Data Generation & Testing
+faker
