@@ -5,8 +5,8 @@ from rate_limit.redis_client import get_redis
 MODEL_LIMITS = {
     "gpt-4.1":       {"rpm": 5,  "rpd": 8},
     "gpt-4o-mini":   {"rpm": 10, "rpd": 25},
-    "compound":      {"rpm": 30, "rpd": 5},
-    "compound-mini": {"rpm": 30, "rpd": 5},
+    "compound":      {"rpm": 15, "rpd": 100},
+    "compound-mini": {"rpm": 15, "rpd": 200},
     "llama-scout-4": {"rpm": 10, "rpd": 20},
     "gpt-oss-120b":  {"rpm": 5,  "rpd": 15},
 }

@@ -1,6 +1,6 @@
 import json
 import re
-from generator.prompts import COLUMN_SUGGEST_SYSTEM, COLUMN_SUGGEST_USER
+from generator.prompts import CUSTOM_COLUMN_SUGGEST_SYSTEM, CUSTOM_COLUMN_SUGGEST_USER
 from llm.router import generate_text
 
 # single model for column suggestion
@@ -24,10 +24,10 @@ def suggest_columns(topic: str, available_types: list, user_id: str = None, colu
 
     try:
         types_str = ", ".join(available_types)
-        user_prompt = COLUMN_SUGGEST_USER.format(topic=topic, available_types=types_str, column_count=count)
+        user_prompt = CUSTOM_COLUMN_SUGGEST_USER.format(topic=topic, available_types=types_str, column_count=count)
 
         messages = [
-            {"role": "system", "content": COLUMN_SUGGEST_SYSTEM},
+            {"role": "system", "content": CUSTOM_COLUMN_SUGGEST_SYSTEM},
             {"role": "user", "content": user_prompt},
         ]
 

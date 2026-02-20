@@ -12,7 +12,7 @@ from database.models import Chat, Message, DeletedChat
 from database.enums import MessageRole
 from core.dependencies import require_auth_cookie
 from core.responses import success_response, error_response
-from generator.engine import generate_dataset
+from generator.engine import generate_dataset, generate_dataset_from_chat
 from generator.prompts import CHAT_SYSTEM, CHAT_ROW_REMINDER
 from llm.router import stream_chat, DEFAULT_CHAT_MODEL, MODEL_REGISTRY
 from rate_limit.limiter import record_usage, check_rate_limit
@@ -34,7 +34,7 @@ class SendRequest(BaseModel):
 
 class DownloadFromChatRequest(BaseModel):
     format: str = "json"
-    rows: int = 100
+    rows: int = 20  # default 20; overridden by what user said in chat
     source: str = "AI"
     model_id: Optional[str] = None
     data_mode: str = "synthetic"
@@ -50,9 +50,11 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     """Send message and get SSE streamed response. Every response includes a 5-row table."""
     model_id = req.model or DEFAULT_CHAT_MODEL
 
-    # rate limit
+    # rate limit — return as SSE so the frontend stream handler shows the message
     if not check_rate_limit(model_id, user_id):
-        return error_response("Rate limit exceeded", 429)
+        async def rate_limit_stream():
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Rate limit exceeded for this model. Please wait a moment or switch to a different model.'})}".encode() + b"\n\n"
+        return StreamingResponse(rate_limit_stream(), media_type="text/event-stream", status_code=200)
 
     # get or create chat
     chat = None
@@ -100,12 +102,12 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     for msg in history:
         llm_messages.append({"role": msg.role.value, "content": msg.content})
 
-    # Inject 5-row / 10-column reminder before final user message
+    # Inject 5-row / 5-column reminder before final user message
     if len(llm_messages) >= 2:
         llm_messages.insert(-1, {"role": "system", "content": CHAT_ROW_REMINDER})
 
-    # Web search tools are NEVER used during chat — only during dataset download
-    # This applies to all modes including Compound models
+    # Compound models get internet tools automatically via groq_provider
+    # Non-compound models operate offline
 
     # If images are provided and the model supports vision, build multimodal user message
     model_info = MODEL_REGISTRY.get(model_id, {})
@@ -171,47 +173,43 @@ def download_from_chat(
     user_id: str = Depends(require_auth_cookie),
     db: Session = Depends(get_db),
 ):
-    """Generate dataset from chat context. Extracts schema from last assistant table."""
+    """Generate dataset from chat context.
+    Passes the FULL chat history to the LLM so it generates the exact
+    rows and columns the user asked for in the conversation."""
     chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == user_id).first()
     if not chat:
         return error_response("Chat not found", 404)
 
-    messages = db.query(Message).filter(Message.chat_id == chat.id).order_by(Message.created_at).all()
-    if not messages:
+    db_messages = db.query(Message).filter(Message.chat_id == chat.id).order_by(Message.created_at).all()
+    if not db_messages:
         return error_response("No messages in chat")
 
-    # extract columns from last assistant response with a table
-    columns = _extract_columns_from_chat(messages)
-    if not columns:
-        return error_response("Could not extract dataset schema from chat")
+    # Build chat history as plain dicts for the LLM
+    chat_history = []
+    for msg in db_messages:
+        chat_history.append({"role": msg.role.value, "content": msg.content})
 
-    # build context from chat history
-    context = _build_chat_context(messages)
-
-    # Determine web search usage — ONLY for compound models in live-data mode
+    # Determine data mode
     data_mode = req.data_mode or (chat.data_mode or "synthetic").lower()
-    # Map legacy "real-time" to "realistic"
     if data_mode == "real-time":
         data_mode = "realistic"
     model_id_for_gen = req.model_id or chat.model
-    model_info = MODEL_REGISTRY.get(model_id_for_gen, {})
-    # Web search ONLY for compound/compound-mini models
     is_compound = model_id_for_gen in ("compound", "compound-mini")
-    use_web_search = is_compound and model_info.get("web_search", False)
-    # Force live-data mode for compound models
     if is_compound:
         data_mode = "live-data"
 
-    result = generate_dataset(
-        columns=columns,
-        rows=req.rows,
+    # Build context string for table name derivation
+    context = chat.title or ""
+
+    # Pass full chat history to LLM — it decides rows/columns from conversation
+    result = generate_dataset_from_chat(
+        chat_messages=chat_history,
         fmt=req.format,
-        source=req.source,
-        context=context,
         model_id=model_id_for_gen,
         user_id=user_id,
         data_mode=data_mode,
-        use_web_search=use_web_search,
+        default_rows=req.rows,
+        context=context,
     )
 
     # Auto-save dataset
@@ -335,102 +333,3 @@ def delete_chat(chat_id: str, user_id: str = Depends(require_auth_cookie), db: S
     db.commit()
 
     return success_response({"message": "Chat deleted"})
-
-
-# --- helpers ---
-
-def _extract_columns_from_chat(messages: list) -> list:
-    """Find last assistant message with a markdown table, extract column headers."""
-    for msg in reversed(messages):
-        if msg.role != MessageRole.assistant:
-            continue
-        # find markdown table
-        lines = msg.content.split("\n")
-        for i, line in enumerate(lines):
-            if "|" in line and i + 1 < len(lines) and re.match(r"^\s*\|[\s\-|]+\|\s*$", lines[i + 1]):
-                # this is a table header
-                headers = [h.strip() for h in line.split("|") if h.strip()]
-                if headers:
-                    # infer types from data rows
-                    columns = []
-                    data_rows = []
-                    for j in range(i + 2, min(i + 7, len(lines))):
-                        if "|" not in lines[j]:
-                            break
-                        cells = [c.strip() for c in lines[j].split("|") if c.strip()]
-                        data_rows.append(cells)
-
-                    for idx, header in enumerate(headers):
-                        col_type = _infer_type(header, [r[idx] if idx < len(r) else "" for r in data_rows])
-                        columns.append({"name": header, "type": col_type})
-                    return columns
-    return []
-
-
-def _infer_type(header: str, sample_values: list) -> str:
-    """Guess column type from header name and sample values."""
-    h = header.lower()
-
-    # name-based heuristics
-    if "id" == h or h.endswith("_id"):
-        return "Number"
-    if "email" in h:
-        return "Email"
-    if "phone" in h:
-        return "Phone Number"
-    if "date" in h or "birth" in h:
-        return "Date"
-    if "age" in h:
-        return "Number"
-    if "price" in h or "cost" in h or "salary" in h or "amount" in h or "revenue" in h:
-        return "Currency"
-    if "city" in h:
-        return "City"
-    if "country" in h:
-        return "Country"
-    if "state" in h:
-        return "State"
-    if "address" in h:
-        return "Address"
-    if "name" in h:
-        return "Name"
-    if "url" in h or "website" in h:
-        return "URL"
-    if "company" in h:
-        return "Company Name"
-    if "department" in h or "dept" in h:
-        return "Department"
-    if "title" in h or "job" in h or "position" in h:
-        return "Job Title"
-    if "bool" in h or "active" in h or "status" in h:
-        return "Boolean"
-    if "gender" in h:
-        return "Gender"
-
-    # value-based heuristics
-    if sample_values:
-        val = sample_values[0]
-        if val:
-            try:
-                int(str(val).replace(",", ""))
-                return "Number"
-            except ValueError:
-                pass
-            try:
-                float(str(val).replace(",", "").replace("$", ""))
-                return "Currency"
-            except ValueError:
-                pass
-            if "@" in str(val):
-                return "Email"
-
-    return "String"
-
-
-def _build_chat_context(messages: list) -> str:
-    """Summarize chat history into a context string for dataset generation."""
-    parts = []
-    for msg in messages[-6:]:  # last 6 messages
-        role = "User" if msg.role == MessageRole.user else "Assistant"
-        parts.append(f"{role}: {msg.content[:200]}")
-    return "\n".join(parts)

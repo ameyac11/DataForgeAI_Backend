@@ -62,7 +62,7 @@ async def stream_completion(messages: list, model_id: str, use_web_search: bool 
             model=github_model,
             messages=_convert_messages(messages),
             temperature=0.2,
-            max_tokens=1000,
+            max_tokens=8000,
             stream=True,
         )
         for chunk in response:

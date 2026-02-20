@@ -33,7 +33,7 @@ def get_provider(model_id: str):
 
 async def stream_chat(messages: list, model_id: str = None):
     """Stream chat response with automatic fallback on failure.
-    Web search tools are NEVER used during chat — only during dataset generation."""
+    Compound models automatically get internet tools via groq_provider."""
     model_id = model_id or DEFAULT_CHAT_MODEL
     tried = set()
 
