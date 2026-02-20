@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
+from sqlalchemy.orm import Session
 
 from core.dependencies import require_auth_cookie
 from core.responses import success_response, error_response
@@ -8,6 +9,8 @@ from generator.engine import generate_dataset, MAX_ROWS
 from generator import faker_engine
 from generator.columns import suggest_columns
 from rate_limit.dependencies import enforce_rate_limit
+from database.session import get_db
+from llm.router import MODEL_REGISTRY
 
 router = APIRouter(prefix="/api/v1/generate", tags=["generator"])
 
@@ -33,11 +36,13 @@ class DownloadRequest(BaseModel):
     context: str = ""
     model_id: Optional[str] = None
     data_mode: str = "synthetic"
+    dataset_name: Optional[str] = None
 
 
 class ColumnSuggestRequest(BaseModel):
     topic: str
     available_types: list[str]
+    column_count: Optional[int] = 10
 
 
 @router.post("/preview")
@@ -64,7 +69,7 @@ def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
 
 
 @router.post("/download")
-def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie)):
+def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), db: Session = Depends(get_db)):
     """Generate full dataset up to 1000 rows."""
     if not req.columns:
         return error_response("No columns provided")
@@ -77,11 +82,37 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie)):
     if req.source.upper() == "AI" and req.model_id:
         enforce_rate_limit(req.model_id, user_id)
 
+    # Determine web search usage — ONLY for compound models
+    data_mode = req.data_mode.lower() if req.data_mode else "synthetic"
+    # Map legacy "real-time" to "realistic"
+    if data_mode == "real-time":
+        data_mode = "realistic"
+    model_info = MODEL_REGISTRY.get(req.model_id, {}) if req.model_id else {}
+    is_compound = req.model_id in ("compound", "compound-mini") if req.model_id else False
+    use_web_search = is_compound and model_info.get("web_search", False)
+    # Force live-data mode for compound models
+    if is_compound:
+        data_mode = "live-data"
+
     result = generate_dataset(
         columns=cols, rows=req.rows, fmt=req.format,
         source=req.source, context=req.context,
         model_id=req.model_id, user_id=user_id,
-        data_mode=req.data_mode,
+        data_mode=data_mode,
+        use_web_search=use_web_search,
+    )
+
+    # Auto-save dataset
+    from api.datasets import auto_save_dataset
+    dataset_name = req.dataset_name or req.context[:100] if req.context else "Generated Dataset"
+    save_result = auto_save_dataset(
+        user_id=user_id,
+        data=result["data"],
+        fmt=result["format"],
+        dataset_name=dataset_name,
+        model_id=req.model_id or "unknown",
+        data_mode=data_mode,
+        db=db,
     )
 
     # Flatten: put formatted content directly in "data", metadata at top level
@@ -91,6 +122,7 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie)):
         "format": result["format"],
         "rows_generated": result["rows_generated"],
         "error": None,
+        **save_result,
     }
 
 
@@ -102,5 +134,5 @@ def columns(req: ColumnSuggestRequest, user_id: str = Depends(require_auth_cooki
     if not req.available_types:
         return error_response("Available types required")
 
-    result = suggest_columns(req.topic, req.available_types, user_id)
+    result = suggest_columns(req.topic, req.available_types, user_id, column_count=req.column_count)
     return success_response(result)

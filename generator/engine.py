@@ -3,10 +3,14 @@ import re
 from generator import faker_engine
 from generator.formatter import format_output
 from generator.prompts import DATASET_GEN_SYSTEM, DATASET_GEN_USER, MODE_INSTRUCTIONS
+from generator.validator import validate_dataset
 from llm.router import generate_text, DEFAULT_GEN_MODEL
 from rate_limit.limiter import check_rate_limit, record_usage
 
 MAX_ROWS = 1000
+
+# Compound models use built-in web tools — no external search needed
+COMPOUND_MODELS = {"compound", "compound-mini"}
 
 
 def generate_dataset(
@@ -18,6 +22,7 @@ def generate_dataset(
     model_id: str = None,
     user_id: str = None,
     data_mode: str = "synthetic",
+    use_web_search: bool = False,
 ) -> dict:
     """Unified dataset generation — used by both custom generator and chat download.
     Returns {data, format, rows_generated}."""
@@ -28,8 +33,8 @@ def generate_dataset(
         records = faker_engine.generate(columns, rows)
         return format_output(records, columns, fmt, context)
 
-    # AI mode
-    records = _generate_ai(columns, rows, context, model_id, user_id, data_mode)
+    # AI mode — try generation with validation retry
+    records = _generate_ai_with_retry(columns, rows, context, model_id, user_id, data_mode, use_web_search)
     if not records:
         # fallback to faker
         records = faker_engine.generate(columns, rows)
@@ -37,7 +42,21 @@ def generate_dataset(
     return format_output(records, columns, fmt, context)
 
 
-def _generate_ai(columns: list, rows: int, context: str, model_id: str, user_id: str, data_mode: str = "synthetic") -> list:
+def _generate_ai_with_retry(columns, rows, context, model_id, user_id, data_mode, use_web_search, max_retries=1):
+    """Generate with validation and one auto-retry on failure."""
+    for attempt in range(1 + max_retries):
+        records = _generate_ai(columns, rows, context, model_id, user_id, data_mode, use_web_search)
+        if not records:
+            continue
+
+        is_valid, errors, cleaned = validate_dataset(records, columns)
+        if is_valid or attempt == max_retries:
+            return cleaned if cleaned else records
+
+    return []
+
+
+def _generate_ai(columns: list, rows: int, context: str, model_id: str, user_id: str, data_mode: str = "synthetic", use_web_search: bool = False) -> list:
     """Single LLM call to generate dataset rows as JSON."""
     try:
         # rate limit check
@@ -46,7 +65,13 @@ def _generate_ai(columns: list, rows: int, context: str, model_id: str, user_id:
 
         columns_desc = ", ".join(f'{c["name"]} ({c["type"]})' for c in columns)
         context_line = f'Context/Theme: "{context}". All data should match this theme.' if context else ""
-        mode_instruction = MODE_INSTRUCTIONS.get(data_mode.lower(), MODE_INSTRUCTIONS["synthetic"])
+
+        # Normalize mode: map legacy "real-time" to "realistic"
+        normalized_mode = data_mode.lower()
+        if normalized_mode == "real-time":
+            normalized_mode = "realistic"
+
+        mode_instruction = MODE_INSTRUCTIONS.get(normalized_mode, MODE_INSTRUCTIONS["synthetic"])
 
         user_prompt = DATASET_GEN_USER.format(
             rows=rows,
@@ -55,12 +80,20 @@ def _generate_ai(columns: list, rows: int, context: str, model_id: str, user_id:
             mode_instruction=mode_instruction,
         )
 
+        # No Perplexity enrichment — compound models use built-in tools via Groq
+        # Non-compound models never use web search
+
         messages = [
             {"role": "system", "content": DATASET_GEN_SYSTEM},
             {"role": "user", "content": user_prompt},
         ]
 
-        raw = generate_text(messages, model_id, temperature=0.5, max_tokens=min(rows * 60, 8000))
+        raw = generate_text(
+            messages, model_id,
+            temperature=0.5,
+            max_tokens=min(rows * 60, 8000),
+            use_web_search=use_web_search and model_id in COMPOUND_MODELS,
+        )
         if not raw:
             return []
 

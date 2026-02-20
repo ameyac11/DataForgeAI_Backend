@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum, UniqueConstraint, Index, Boolean
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum, UniqueConstraint, Index, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
 
@@ -27,6 +27,7 @@ class User(Base):
 
     auth_providers = relationship("AuthProviderModel", back_populates="user", cascade="all, delete-orphan")
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
+    datasets = relationship("UserDataset", back_populates="user", cascade="all, delete-orphan")
 
 
 class AuthProviderModel(Base):
@@ -89,3 +90,18 @@ class Message(Base):
     created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
 
     chat = relationship("Chat", back_populates="messages")
+
+
+class UserDataset(Base):
+    __tablename__ = "user_datasets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    dataset_name = Column(Text, nullable=False)
+    generation_mode = Column(Text, nullable=False)
+    model_used = Column(Text, nullable=False)
+    file_size_bytes = Column(Integer, nullable=False)
+    file_path = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+
+    user = relationship("User", back_populates="datasets")

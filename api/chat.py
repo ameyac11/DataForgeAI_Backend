@@ -13,9 +13,8 @@ from database.enums import MessageRole
 from core.dependencies import require_auth_cookie
 from core.responses import success_response, error_response
 from generator.engine import generate_dataset
-from generator.prompts import CHAT_SYSTEM
+from generator.prompts import CHAT_SYSTEM, CHAT_ROW_REMINDER
 from llm.router import stream_chat, DEFAULT_CHAT_MODEL, MODEL_REGISTRY
-from llm.web_search import build_search_context, get_web_search_usage
 from rate_limit.limiter import record_usage, check_rate_limit
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
@@ -39,6 +38,7 @@ class DownloadFromChatRequest(BaseModel):
     source: str = "AI"
     model_id: Optional[str] = None
     data_mode: str = "synthetic"
+    dataset_name: Optional[str] = None
 
 
 class RenameRequest(BaseModel):
@@ -85,10 +85,14 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     mode_suffix = ""
     if req.data_mode:
         mode_key = req.data_mode.lower()
+        # Map legacy "real-time" to "realistic"
+        if mode_key == "real-time":
+            mode_key = "realistic"
         mode_map = {
             "synthetic": "\n\nDATA MODE: Synthetic — Generate completely fictional/synthetic data in your example tables. Use made-up names, addresses, emails. Data should look plausible but NOT be real.",
-            "realistic": "\n\nDATA MODE: Realistic — Generate data that closely mirrors real-world patterns in your example tables. Use realistic names, real city names, properly formatted emails, realistic salary ranges.",
-            "hybrid": "\n\nDATA MODE: Hybrid — Mix synthetic and realistic data in your example tables. Use real city/country names and realistic distributions, but use fictional names and identifiers.",
+            "realistic": "\n\nDATA MODE: Realistic — Generate data mimicking real-world patterns in your example tables. Use realistic names, real city names, properly formatted emails, realistic salary ranges. Data should appear believable but is not sourced from the internet.",
+            "hybrid": "\n\nDATA MODE: Hybrid — Mix realistic formatting with synthetic values in your example tables. Use real city/country names and realistic distributions, but use fictional names and identifiers.",
+            "live-data": "\n\nDATA MODE: Live Data — Generate data that mirrors real-world patterns in your example tables. Use realistic names, real city names, properly formatted data. The full dataset with live web data will be extracted during download using built-in web search tools.",
         }
         mode_suffix = mode_map.get(mode_key, "")
 
@@ -96,12 +100,12 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     for msg in history:
         llm_messages.append({"role": msg.role.value, "content": msg.content})
 
-    # Web search — inject search results into context if enabled
-    if req.web_search:
-        search_context = build_search_context(req.message, user_id)
-        if search_context:
-            # Insert search results as a system message before the user's query
-            llm_messages.insert(-1, {"role": "system", "content": search_context})
+    # Inject 5-row / 10-column reminder before final user message
+    if len(llm_messages) >= 2:
+        llm_messages.insert(-1, {"role": "system", "content": CHAT_ROW_REMINDER})
+
+    # Web search tools are NEVER used during chat — only during dataset download
+    # This applies to all modes including Compound models
 
     # If images are provided and the model supports vision, build multimodal user message
     model_info = MODEL_REGISTRY.get(model_id, {})
@@ -184,15 +188,43 @@ def download_from_chat(
     # build context from chat history
     context = _build_chat_context(messages)
 
+    # Determine web search usage — ONLY for compound models in live-data mode
+    data_mode = req.data_mode or (chat.data_mode or "synthetic").lower()
+    # Map legacy "real-time" to "realistic"
+    if data_mode == "real-time":
+        data_mode = "realistic"
+    model_id_for_gen = req.model_id or chat.model
+    model_info = MODEL_REGISTRY.get(model_id_for_gen, {})
+    # Web search ONLY for compound/compound-mini models
+    is_compound = model_id_for_gen in ("compound", "compound-mini")
+    use_web_search = is_compound and model_info.get("web_search", False)
+    # Force live-data mode for compound models
+    if is_compound:
+        data_mode = "live-data"
+
     result = generate_dataset(
         columns=columns,
         rows=req.rows,
         fmt=req.format,
         source=req.source,
         context=context,
-        model_id=req.model_id,
+        model_id=model_id_for_gen,
         user_id=user_id,
-        data_mode=req.data_mode or (chat.data_mode or "synthetic").lower(),
+        data_mode=data_mode,
+        use_web_search=use_web_search,
+    )
+
+    # Auto-save dataset
+    from api.datasets import auto_save_dataset
+    dataset_name = req.dataset_name or chat.title or "Chat Dataset"
+    save_result = auto_save_dataset(
+        user_id=user_id,
+        data=result["data"],
+        fmt=result["format"],
+        dataset_name=dataset_name,
+        model_id=model_id_for_gen or "unknown",
+        data_mode=data_mode,
+        db=db,
     )
 
     # Flatten: put formatted content directly in "data", metadata at top level
@@ -202,6 +234,7 @@ def download_from_chat(
         "format": result["format"],
         "rows_generated": result["rows_generated"],
         "error": None,
+        **save_result,
     }
 
 

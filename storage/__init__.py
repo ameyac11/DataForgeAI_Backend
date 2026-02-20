@@ -1,0 +1,1 @@
+# Appwrite object storage module

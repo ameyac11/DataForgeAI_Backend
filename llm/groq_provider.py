@@ -20,8 +20,10 @@ def _get_client() -> Groq:
     return Groq(api_key=settings.GROQ_API_KEY)
 
 
-async def stream_completion(messages: list, model_id: str):
-    """Async generator yielding text chunks via Groq streaming."""
+async def stream_completion(messages: list, model_id: str, use_web_search: bool = False):
+    """Async generator yielding text chunks via Groq streaming.
+    NOTE: Web search tools are NEVER used during chat streaming.
+    Tools are only used in generate_completion() for dataset generation."""
     client = _get_client()
     groq_model = GROQ_MODELS.get(model_id, model_id)
 
@@ -33,9 +35,8 @@ async def stream_completion(messages: list, model_id: str):
         "stream": True,
     }
 
-    # compound models get web search
-    if model_id in WEB_SEARCH_MODELS:
-        kwargs["tools"] = [{"type": "web_search_preview"}]
+    # NO tools during chat streaming — ever
+    # Compound models stream normally without web search during chat
 
     try:
         stream = client.chat.completions.create(**kwargs)
@@ -51,18 +52,25 @@ async def stream_completion(messages: list, model_id: str):
         raise
 
 
-def generate_completion(messages: list, model_id: str, temperature: float = 0.5, max_tokens: int = 8192, timeout: int = 120) -> str:
+def generate_completion(messages: list, model_id: str, temperature: float = 0.5, max_tokens: int = 8192, timeout: int = 120, use_web_search: bool = False) -> str:
     """Non-streaming completion for dataset generation."""
     client = _get_client()
     groq_model = GROQ_MODELS.get(model_id, model_id)
 
     try:
-        response = client.chat.completions.create(
-            model=groq_model,
-            messages=messages,
-            temperature=temperature,
-            max_completion_tokens=max_tokens,
-        )
+        kwargs = {
+            "model": groq_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_completion_tokens": max_tokens,
+        }
+        # compound models get web_search + visit_website tools ONLY during dataset generation
+        if model_id in WEB_SEARCH_MODELS and use_web_search:
+            kwargs["tools"] = [
+                {"type": "web_search_preview"},
+            ]
+            kwargs["tool_choice"] = "auto"
+        response = client.chat.completions.create(**kwargs)
         return response.choices[0].message.content or ""
     except Exception as e:
         error_str = str(e).lower()

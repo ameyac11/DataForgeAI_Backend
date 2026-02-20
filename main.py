@@ -12,6 +12,7 @@ from api.auth import router as auth_router
 from api.chat import router as chat_router
 from api.generator import router as generator_router
 from api.health import router as health_router
+from api.datasets import router as datasets_router
 
 settings = get_settings()
 
@@ -39,6 +40,7 @@ app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(generator_router)
 app.include_router(health_router)
+app.include_router(datasets_router)
 
 
 @app.on_event("startup")

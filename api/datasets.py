@@ -1,0 +1,190 @@
+import uuid
+import json
+import base64
+from datetime import datetime
+from fastapi import APIRouter, Depends, Response
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+
+from database.session import get_db
+from database.models import UserDataset
+from core.dependencies import require_auth_cookie
+from core.responses import success_response, error_response
+from storage.appwrite_storage import upload_file, download_file, delete_file
+
+router = APIRouter(prefix="/api/v1/datasets", tags=["datasets"])
+
+MAX_DATASETS = 10
+MAX_FILE_SIZE = 2_097_152  # 2MB in bytes
+
+
+@router.get("")
+def list_datasets(user_id: str = Depends(require_auth_cookie), db: Session = Depends(get_db)):
+    """List all datasets for the authenticated user."""
+    datasets = db.query(UserDataset).filter(
+        UserDataset.user_id == user_id
+    ).order_by(UserDataset.created_at.desc()).all()
+
+    return success_response({
+        "datasets": [
+            {
+                "id": str(d.id),
+                "dataset_name": d.dataset_name,
+                "generation_mode": d.generation_mode,
+                "model_used": d.model_used,
+                "file_size_bytes": d.file_size_bytes,
+                "file_path": d.file_path,
+                "created_at": d.created_at.isoformat(),
+            }
+            for d in datasets
+        ],
+        "count": len(datasets),
+        "limit": MAX_DATASETS,
+    })
+
+
+@router.get("/{dataset_id}/download")
+def download_dataset(
+    dataset_id: str,
+    user_id: str = Depends(require_auth_cookie),
+    db: Session = Depends(get_db),
+):
+    """Download a dataset file from storage."""
+    dataset = db.query(UserDataset).filter(
+        UserDataset.id == dataset_id,
+        UserDataset.user_id == user_id,
+    ).first()
+
+    if not dataset:
+        return error_response("Dataset not found", 404)
+
+    try:
+        content = download_file(str(dataset.id))
+
+        # Determine content type from file path
+        ext = dataset.file_path.split(".")[-1].lower() if "." in dataset.file_path else "json"
+        content_types = {
+            "json": "application/json",
+            "csv": "text/csv",
+            "sql": "application/sql",
+            "parquet": "application/octet-stream",
+        }
+        content_type = content_types.get(ext, "application/octet-stream")
+        filename = f"{dataset.dataset_name}.{ext}"
+
+        return Response(
+            content=content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        return error_response(f"Failed to download: {str(e)[:100]}", 500)
+
+
+@router.delete("/{dataset_id}")
+def delete_dataset(
+    dataset_id: str,
+    user_id: str = Depends(require_auth_cookie),
+    db: Session = Depends(get_db),
+):
+    """Delete a dataset (file + metadata)."""
+    dataset = db.query(UserDataset).filter(
+        UserDataset.id == dataset_id,
+        UserDataset.user_id == user_id,
+    ).first()
+
+    if not dataset:
+        return error_response("Dataset not found", 404)
+
+    # 1. Delete file from storage
+    delete_file(str(dataset.id))
+
+    # 2. Delete row from PostgreSQL
+    db.delete(dataset)
+    db.commit()
+
+    return success_response({"message": "Dataset deleted"})
+
+
+def auto_save_dataset(
+    user_id: str,
+    data,
+    fmt: str,
+    dataset_name: str,
+    model_id: str,
+    data_mode: str,
+    db: Session,
+) -> dict:
+    """Auto-save generated dataset after generation.
+    Returns dict with save_status, save_message, dataset_id.
+    """
+
+    # 1. Serialize data to bytes
+    if fmt == "json":
+        if isinstance(data, list):
+            content = json.dumps(data, indent=2).encode("utf-8")
+        elif isinstance(data, str):
+            content = data.encode("utf-8")
+        else:
+            content = json.dumps(data, indent=2).encode("utf-8")
+    elif fmt in ("csv", "sql"):
+        content = data.encode("utf-8") if isinstance(data, str) else str(data).encode("utf-8")
+    elif fmt == "parquet":
+        content = base64.b64decode(data) if isinstance(data, str) else data
+    else:
+        content = json.dumps(data).encode("utf-8") if not isinstance(data, str) else data.encode("utf-8")
+
+    file_size = len(content)
+
+    # 2. Check file size (2MB limit)
+    if file_size > MAX_FILE_SIZE:
+        return {
+            "save_status": "size_exceeded",
+            "save_message": "Dataset exceeds 2MB limit. Please reduce dataset size.",
+            "dataset_id": None,
+        }
+
+    # 3. Check user dataset count
+    count = db.query(func.count(UserDataset.id)).filter(
+        UserDataset.user_id == user_id
+    ).scalar() or 0
+
+    if count >= MAX_DATASETS:
+        return {
+            "save_status": "limit_exceeded",
+            "save_message": f"Your dataset storage is full ({count}/{MAX_DATASETS}). Please delete an old dataset to save new ones.",
+            "dataset_id": None,
+        }
+
+    # 4. Upload to storage
+    dataset_id = str(uuid.uuid4())
+    ext = fmt if fmt != "parquet" else "parquet"
+    file_path = f"datasets/{user_id}/{dataset_id}.{ext}"
+
+    try:
+        upload_file(content, dataset_id, f"dataset.{ext}")
+    except Exception as e:
+        return {
+            "save_status": "upload_failed",
+            "save_message": f"Failed to save dataset: {str(e)[:100]}",
+            "dataset_id": None,
+        }
+
+    # 5. Insert metadata into PostgreSQL
+    dataset = UserDataset(
+        id=uuid.UUID(dataset_id),
+        user_id=uuid.UUID(user_id) if isinstance(user_id, str) else user_id,
+        dataset_name=(dataset_name[:255] if dataset_name else f"Dataset {datetime.now().strftime('%Y-%m-%d %H:%M')}"),
+        generation_mode=data_mode or "synthetic",
+        model_used=model_id or "unknown",
+        file_size_bytes=file_size,
+        file_path=file_path,
+    )
+    db.add(dataset)
+    db.commit()
+
+    return {
+        "save_status": "saved",
+        "save_message": "Dataset saved to My Datasets.",
+        "dataset_id": dataset_id,
+    }

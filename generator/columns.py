@@ -4,17 +4,27 @@ from generator.prompts import COLUMN_SUGGEST_SYSTEM, COLUMN_SUGGEST_USER
 from llm.router import generate_text
 
 # single model for column suggestion
-COLUMN_MODEL = "gpt-4o-mini"
+COLUMN_MODEL = "gpt-4.1-nano"
+
+# column count limits
+DEFAULT_COLUMN_COUNT = 10
+MAX_COLUMN_COUNT = 10
+MIN_COLUMN_COUNT = 3
 
 
-def suggest_columns(topic: str, available_types: list, user_id: str = None) -> list:
-    """AI-powered column suggestion. Returns [{"name": ..., "type": ...}]."""
+def suggest_columns(topic: str, available_types: list, user_id: str = None, column_count: int = None) -> list:
+    """AI-powered column suggestion. Returns [{"name": ..., "type": ...}].
+    Default: 10 columns. Max: 10 columns regardless of request."""
     if not topic or not available_types:
         return []
 
+    # clamp column count: default 10, max 10
+    count = column_count if column_count else DEFAULT_COLUMN_COUNT
+    count = min(max(count, MIN_COLUMN_COUNT), MAX_COLUMN_COUNT)
+
     try:
         types_str = ", ".join(available_types)
-        user_prompt = COLUMN_SUGGEST_USER.format(topic=topic, available_types=types_str)
+        user_prompt = COLUMN_SUGGEST_USER.format(topic=topic, available_types=types_str, column_count=count)
 
         messages = [
             {"role": "system", "content": COLUMN_SUGGEST_SYSTEM},
@@ -50,22 +60,41 @@ def suggest_columns(topic: str, available_types: list, user_id: str = None) -> l
                 matched_type = next((t for t in available_types if t.lower() == ctype.lower()), ctype)
                 valid.append({"name": name, "type": matched_type})
 
-        return valid if valid else _fallback_columns(topic, available_types)
+        # enforce column count limit
+        if len(valid) > MAX_COLUMN_COUNT:
+            valid = valid[:MAX_COLUMN_COUNT]
+
+        return valid if valid else _fallback_columns(topic, available_types, count)
 
     except Exception:
-        return _fallback_columns(topic, available_types)
+        return _fallback_columns(topic, available_types, count)
 
 
-def _fallback_columns(topic: str, available_types: list) -> list:
-    """Sensible defaults when AI fails."""
+def _fallback_columns(topic: str, available_types: list, count: int = 10) -> list:
+    """Sensible defaults when AI fails. Generates up to `count` columns."""
     cols = []
     topic_clean = topic.lower().replace(" ", "_")
 
-    if "Number" in available_types:
-        cols.append({"name": f"{topic_clean}_id", "type": "Number"})
-    if "String" in available_types:
-        cols.append({"name": "name", "type": "String"})
-    if "Date" in available_types:
-        cols.append({"name": "created_at", "type": "Date"})
+    # base columns
+    fallback_pool = [
+        (f"{topic_clean}_id", "Number"),
+        ("name", "String"),
+        ("description", "String"),
+        ("category", "String"),
+        ("status", "String"),
+        ("created_at", "Date"),
+        ("amount", "Number"),
+        ("email", "Email"),
+        ("city", "City"),
+        ("notes", "String"),
+    ]
+
+    types_lower = {t.lower() for t in available_types}
+    for name, ctype in fallback_pool:
+        if len(cols) >= count:
+            break
+        if ctype in available_types or ctype.lower() in types_lower:
+            matched = next((t for t in available_types if t.lower() == ctype.lower()), ctype)
+            cols.append({"name": name, "type": matched})
 
     return cols
