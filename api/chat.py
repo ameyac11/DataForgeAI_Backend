@@ -14,7 +14,8 @@ from core.dependencies import require_auth_cookie
 from core.responses import success_response, error_response
 from generator.engine import generate_dataset
 from generator.prompts import CHAT_SYSTEM
-from llm.router import stream_chat, DEFAULT_CHAT_MODEL
+from llm.router import stream_chat, DEFAULT_CHAT_MODEL, MODEL_REGISTRY
+from llm.web_search import build_search_context, get_web_search_usage
 from rate_limit.limiter import record_usage, check_rate_limit
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
@@ -28,6 +29,8 @@ class SendRequest(BaseModel):
     model: Optional[str] = None
     data_format: Optional[str] = "JSON"
     data_mode: Optional[str] = "Synthetic"
+    images: Optional[list[str]] = None  # list of base64-encoded images
+    web_search: bool = False  # whether to use web search
 
 
 class DownloadFromChatRequest(BaseModel):
@@ -35,6 +38,7 @@ class DownloadFromChatRequest(BaseModel):
     rows: int = 100
     source: str = "AI"
     model_id: Optional[str] = None
+    data_mode: str = "synthetic"
 
 
 class RenameRequest(BaseModel):
@@ -77,9 +81,47 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     history = history[-HISTORY_LIMIT:]
 
     # build messages for LLM
-    llm_messages = [{"role": "system", "content": CHAT_SYSTEM}]
+    # Include data mode instruction in the system prompt
+    mode_suffix = ""
+    if req.data_mode:
+        mode_key = req.data_mode.lower()
+        mode_map = {
+            "synthetic": "\n\nDATA MODE: Synthetic — Generate completely fictional/synthetic data in your example tables. Use made-up names, addresses, emails. Data should look plausible but NOT be real.",
+            "realistic": "\n\nDATA MODE: Realistic — Generate data that closely mirrors real-world patterns in your example tables. Use realistic names, real city names, properly formatted emails, realistic salary ranges.",
+            "hybrid": "\n\nDATA MODE: Hybrid — Mix synthetic and realistic data in your example tables. Use real city/country names and realistic distributions, but use fictional names and identifiers.",
+        }
+        mode_suffix = mode_map.get(mode_key, "")
+
+    llm_messages = [{"role": "system", "content": CHAT_SYSTEM + mode_suffix}]
     for msg in history:
         llm_messages.append({"role": msg.role.value, "content": msg.content})
+
+    # Web search — inject search results into context if enabled
+    if req.web_search:
+        search_context = build_search_context(req.message, user_id)
+        if search_context:
+            # Insert search results as a system message before the user's query
+            llm_messages.insert(-1, {"role": "system", "content": search_context})
+
+    # If images are provided and the model supports vision, build multimodal user message
+    model_info = MODEL_REGISTRY.get(model_id, {})
+    if req.images and model_info.get("vision"):
+        # Replace the last user message with multimodal content
+        content_parts = [{"type": "text", "text": req.message}]
+        for img_b64 in req.images[:4]:  # limit to 4 images
+            # Auto-detect image type or default to jpeg
+            if img_b64.startswith("data:"):
+                # Already has data URI prefix
+                image_url = img_b64
+            else:
+                image_url = f"data:image/jpeg;base64,{img_b64}"
+            content_parts.append({
+                "type": "image_url",
+                "image_url": {"url": image_url},
+            })
+        # Replace last message (which is the current user message) with multimodal
+        if llm_messages and llm_messages[-1]["role"] == "user":
+            llm_messages[-1]["content"] = content_parts
 
     async def event_stream():
         full_response = ""
@@ -150,9 +192,17 @@ def download_from_chat(
         context=context,
         model_id=req.model_id,
         user_id=user_id,
+        data_mode=req.data_mode or (chat.data_mode or "synthetic").lower(),
     )
 
-    return success_response(result)
+    # Flatten: put formatted content directly in "data", metadata at top level
+    return {
+        "success": True,
+        "data": result["data"],
+        "format": result["format"],
+        "rows_generated": result["rows_generated"],
+        "error": None,
+    }
 
 
 @router.post("")

@@ -2,7 +2,7 @@ import json
 import re
 from generator import faker_engine
 from generator.formatter import format_output
-from generator.prompts import DATASET_GEN_SYSTEM, DATASET_GEN_USER
+from generator.prompts import DATASET_GEN_SYSTEM, DATASET_GEN_USER, MODE_INSTRUCTIONS
 from llm.router import generate_text, DEFAULT_GEN_MODEL
 from rate_limit.limiter import check_rate_limit, record_usage
 
@@ -17,6 +17,7 @@ def generate_dataset(
     context: str = "",
     model_id: str = None,
     user_id: str = None,
+    data_mode: str = "synthetic",
 ) -> dict:
     """Unified dataset generation — used by both custom generator and chat download.
     Returns {data, format, rows_generated}."""
@@ -28,7 +29,7 @@ def generate_dataset(
         return format_output(records, columns, fmt, context)
 
     # AI mode
-    records = _generate_ai(columns, rows, context, model_id, user_id)
+    records = _generate_ai(columns, rows, context, model_id, user_id, data_mode)
     if not records:
         # fallback to faker
         records = faker_engine.generate(columns, rows)
@@ -36,7 +37,7 @@ def generate_dataset(
     return format_output(records, columns, fmt, context)
 
 
-def _generate_ai(columns: list, rows: int, context: str, model_id: str, user_id: str) -> list:
+def _generate_ai(columns: list, rows: int, context: str, model_id: str, user_id: str, data_mode: str = "synthetic") -> list:
     """Single LLM call to generate dataset rows as JSON."""
     try:
         # rate limit check
@@ -45,11 +46,13 @@ def _generate_ai(columns: list, rows: int, context: str, model_id: str, user_id:
 
         columns_desc = ", ".join(f'{c["name"]} ({c["type"]})' for c in columns)
         context_line = f'Context/Theme: "{context}". All data should match this theme.' if context else ""
+        mode_instruction = MODE_INSTRUCTIONS.get(data_mode.lower(), MODE_INSTRUCTIONS["synthetic"])
 
         user_prompt = DATASET_GEN_USER.format(
             rows=rows,
             columns_desc=columns_desc,
             context_line=context_line,
+            mode_instruction=mode_instruction,
         )
 
         messages = [

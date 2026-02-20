@@ -22,6 +22,7 @@ class PreviewRequest(BaseModel):
     source: str = "AI"
     context: str = ""
     model_id: Optional[str] = None
+    data_mode: str = "synthetic"
 
 
 class DownloadRequest(BaseModel):
@@ -31,6 +32,7 @@ class DownloadRequest(BaseModel):
     source: str = "AI"
     context: str = ""
     model_id: Optional[str] = None
+    data_mode: str = "synthetic"
 
 
 class ColumnSuggestRequest(BaseModel):
@@ -54,6 +56,7 @@ def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
             columns=cols, rows=5, fmt="json",
             source=req.source, context=req.context,
             model_id=req.model_id, user_id=user_id,
+            data_mode=req.data_mode,
         )
         data = result["data"]
 
@@ -78,9 +81,17 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie)):
         columns=cols, rows=req.rows, fmt=req.format,
         source=req.source, context=req.context,
         model_id=req.model_id, user_id=user_id,
+        data_mode=req.data_mode,
     )
 
-    return success_response(result)
+    # Flatten: put formatted content directly in "data", metadata at top level
+    return {
+        "success": True,
+        "data": result["data"],
+        "format": result["format"],
+        "rows_generated": result["rows_generated"],
+        "error": None,
+    }
 
 
 @router.post("/columns")

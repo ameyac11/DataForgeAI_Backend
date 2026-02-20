@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GITHUB_TOKEN: str = ""
 
+    # web search
+    SEARCH_API_KEY: str = ""
+    SEARCH_ENGINE_ID: str = ""
+
     @property
     def database_url(self) -> str:
         return f"postgresql://{self.DATABASE_USER}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"

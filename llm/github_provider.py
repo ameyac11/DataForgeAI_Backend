@@ -1,5 +1,8 @@
 from azure.ai.inference import ChatCompletionsClient
-from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
+from azure.ai.inference.models import (
+    SystemMessage, UserMessage, AssistantMessage,
+    TextContentItem, ImageContentItem, ImageUrl,
+)
 from azure.core.credentials import AzureKeyCredential
 from config import get_settings
 
@@ -30,7 +33,18 @@ def _convert_messages(messages: list) -> list:
         if role == "system":
             converted.append(SystemMessage(content=content))
         elif role == "user":
-            converted.append(UserMessage(content=content))
+            if isinstance(content, list):
+                # Multimodal content with text + images
+                parts = []
+                for part in content:
+                    if part.get("type") == "text":
+                        parts.append(TextContentItem(text=part["text"]))
+                    elif part.get("type") == "image_url":
+                        url = part.get("image_url", {}).get("url", "")
+                        parts.append(ImageContentItem(image_url=ImageUrl(url=url)))
+                converted.append(UserMessage(content=parts))
+            else:
+                converted.append(UserMessage(content=content))
         elif role == "assistant":
             converted.append(AssistantMessage(content=content))
     return converted
