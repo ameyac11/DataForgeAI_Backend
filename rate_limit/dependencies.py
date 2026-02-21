@@ -1,8 +1,9 @@
 from fastapi import HTTPException
-from rate_limit.limiter import check_rate_limit
+from rate_limit.limiter import check_and_record
 
 
-def enforce_rate_limit(model_id: str, user_id: str):
+def enforce_rate_limit(model_id: str):
     """Raise 429 if rate limited. Call before LLM requests."""
-    if not check_rate_limit(model_id, user_id):
-        raise HTTPException(status_code=429, detail=f"Rate limit exceeded for {model_id}")
+    error = check_and_record(model_id)
+    if error:
+        raise HTTPException(status_code=429, detail=error["message"])

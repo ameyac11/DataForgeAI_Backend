@@ -10,7 +10,7 @@ from generator import faker_engine
 from generator.columns import suggest_columns
 from rate_limit.dependencies import enforce_rate_limit
 from database.session import get_db
-from llm.router import MODEL_REGISTRY
+from models import MODEL_CONFIG, is_compound
 
 router = APIRouter(prefix="/api/v1/generate", tags=["generator"])
 
@@ -56,14 +56,18 @@ def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
     if req.source.upper() == "LIBRARY":
         data = faker_engine.generate(cols, 5)
     else:
-        # use engine with 5 rows
-        result = generate_dataset(
-            columns=cols, rows=5, fmt="json",
-            source=req.source, context=req.context,
-            model_id=req.model_id, user_id=user_id,
-            data_mode=req.data_mode,
-        )
-        data = result["data"]
+        try:
+            result = generate_dataset(
+                columns=cols, rows=5, fmt="json",
+                source=req.source, context=req.context,
+                model_id=req.model_id,
+                data_mode=req.data_mode,
+            )
+            data = result["data"]
+        except ValueError as exc:
+            return error_response(str(exc))
+        except Exception as exc:
+            return error_response(f"Generation failed: {str(exc)[:300]}")
 
     return success_response(data)
 
@@ -78,33 +82,33 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
 
     cols = [{"name": c.name, "type": c.type} for c in req.columns]
 
-    # rate limit check for AI mode
+    # rate limit check for AI mode (global, no user_id)
     if req.source.upper() == "AI" and req.model_id:
-        enforce_rate_limit(req.model_id, user_id)
+        enforce_rate_limit(req.model_id)
 
-    # Determine web search usage — ONLY for compound models
+    # normalize mode — compound forces live-data
     data_mode = req.data_mode.lower() if req.data_mode else "synthetic"
-    # Map legacy "real-time" to "realistic"
     if data_mode == "real-time":
         data_mode = "realistic"
-    model_info = MODEL_REGISTRY.get(req.model_id, {}) if req.model_id else {}
-    is_compound = req.model_id in ("compound", "compound-mini") if req.model_id else False
-    use_web_search = is_compound and model_info.get("web_search", False)
-    # Force live-data mode for compound models
-    if is_compound:
+    if req.model_id and is_compound(req.model_id):
         data_mode = "live-data"
 
-    result = generate_dataset(
-        columns=cols, rows=req.rows, fmt=req.format,
-        source=req.source, context=req.context,
-        model_id=req.model_id, user_id=user_id,
-        data_mode=data_mode,
-        use_web_search=use_web_search,
-    )
+    result = None
+    try:
+        result = generate_dataset(
+            columns=cols, rows=req.rows, fmt=req.format,
+            source=req.source, context=req.context,
+            model_id=req.model_id,
+            data_mode=data_mode,
+        )
+    except ValueError as exc:
+        return error_response(str(exc))
+    except Exception as exc:
+        return error_response(f"Generation failed: {str(exc)[:300]}")
 
     # Auto-save dataset
     from api.datasets import auto_save_dataset
-    dataset_name = req.dataset_name or req.context[:100] if req.context else "Generated Dataset"
+    dataset_name = req.dataset_name or (req.context[:100] if req.context else "Generated Dataset")
     save_result = auto_save_dataset(
         user_id=user_id,
         data=result["data"],

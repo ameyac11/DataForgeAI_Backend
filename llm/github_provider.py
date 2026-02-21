@@ -51,9 +51,8 @@ def _convert_messages(messages: list) -> list:
     return converted
 
 
-async def stream_completion(messages: list, model_id: str, use_web_search: bool = False):
+async def stream_completion(messages: list, model_id: str):
     """Async generator yielding text chunks via GitHub Models streaming."""
-    # use_web_search not applicable for GitHub models (no built-in search)
     client = _get_client()
     github_model = GITHUB_MODELS.get(model_id, model_id)
 
@@ -72,9 +71,8 @@ async def stream_completion(messages: list, model_id: str, use_web_search: bool 
         raise Exception(f"GITHUB_ERROR:{model_id}:{str(e)[:100]}")
 
 
-def generate_completion(messages: list, model_id: str, temperature: float = 0.5, max_tokens: int = 8192, timeout: int = 120, use_web_search: bool = False) -> str:
-    """Non-streaming completion for dataset generation."""
-    # use_web_search not applicable for GitHub models (no built-in search)
+def generate_completion(messages: list, model_id: str, temperature: float = 0.5, max_tokens: int = 8192, timeout: int = 120) -> str:
+    """Non-streaming completion. max_tokens always provided by router from MODEL_CONFIG."""
     client = _get_client(timeout)
     github_model = GITHUB_MODELS.get(model_id, model_id)
 

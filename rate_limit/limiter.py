@@ -1,15 +1,6 @@
 from datetime import datetime, timezone
 from rate_limit.redis_client import get_redis
-
-# per-model limits
-MODEL_LIMITS = {
-    "gpt-4.1":       {"rpm": 5,  "rpd": 8},
-    "gpt-4o-mini":   {"rpm": 10, "rpd": 25},
-    "compound":      {"rpm": 15, "rpd": 100},
-    "compound-mini": {"rpm": 15, "rpd": 200},
-    "llama-scout-4": {"rpm": 10, "rpd": 20},
-    "gpt-oss-120b":  {"rpm": 5,  "rpd": 15},
-}
+from models import MODEL_CONFIG
 
 
 def _seconds_until_midnight() -> int:
@@ -19,57 +10,75 @@ def _seconds_until_midnight() -> int:
     return int((midnight - now).total_seconds())
 
 
-def check_rate_limit(model_id: str, user_id: str) -> bool:
-    """Returns True if request is allowed, False if rate limited."""
-    limits = MODEL_LIMITS.get(model_id)
-    if not limits:
-        return True
+def check_and_record(model_id: str) -> dict | None:
+    """INCR-first rate limiter. Global per-model limits (not per-user).
+
+    1. INCR the counter
+    2. Set TTL if counter == 1 (first request in window)
+    3. If counter > limit → DECR back, return error dict
+    4. If under limit → return None (success)
+
+    Returns None on success, or error dict on rate limit exceeded.
+    """
+    cfg = MODEL_CONFIG.get(model_id)
+    if not cfg:
+        return None  # unknown model, allow through
+
+    rpm_limit = cfg["rpm"]
+    rpd_limit = cfg["rpd"]
 
     try:
         r = get_redis()
-        rpm_key = f"rpm:{model_id}:{user_id}"
-        rpd_key = f"rpd:{model_id}:{user_id}"
+        rpm_key = f"model:{model_id}:minute_requests"
+        rpd_key = f"model:{model_id}:daily_requests"
 
-        rpm_count = int(r.get(rpm_key) or 0)
-        rpd_count = int(r.get(rpd_key) or 0)
+        # check RPM first
+        rpm_count = r.incr(rpm_key)
+        if rpm_count == 1:
+            r.expire(rpm_key, 60)
+        if rpm_count > rpm_limit:
+            r.decr(rpm_key)
+            return {
+                "error_code": "RATE_LIMIT_EXCEEDED",
+                "type": "RPM",
+                "model": model_id,
+                "message": "Rate limit exceeded for this model. Please wait a moment.",
+            }
 
-        if rpm_count >= limits["rpm"] or rpd_count >= limits["rpd"]:
-            return False
-        return True
+        # check RPD
+        rpd_count = r.incr(rpd_key)
+        if rpd_count == 1:
+            r.expire(rpd_key, _seconds_until_midnight())
+        if rpd_count > rpd_limit:
+            r.decr(rpd_key)
+            # also roll back the RPM increment since the request won't proceed
+            r.decr(rpm_key)
+            return {
+                "error_code": "RATE_LIMIT_EXCEEDED",
+                "type": "RPD",
+                "model": model_id,
+                "message": "Daily limit reached for this model. Try again tomorrow.",
+            }
+
+        return None  # success
+
     except Exception:
-        return True  # redis down, allow through
+        return None  # redis down, allow through
 
 
-def record_usage(model_id: str, user_id: str):
-    """Increment usage counters after successful request."""
-    try:
-        r = get_redis()
-        rpm_key = f"rpm:{model_id}:{user_id}"
-        rpd_key = f"rpd:{model_id}:{user_id}"
-
-        pipe = r.pipeline()
-        pipe.incr(rpm_key)
-        pipe.expire(rpm_key, 60)
-        pipe.incr(rpd_key)
-        pipe.expire(rpd_key, _seconds_until_midnight())
-        pipe.execute()
-    except Exception:
-        pass  # don't break on redis failure
-
-
-def get_usage_status(user_id: str) -> dict:
-    """Get current usage for all models."""
+def get_usage_status() -> dict:
+    """Get current global usage for all models."""
     status = {}
     try:
         r = get_redis()
-        for model_id, limits in MODEL_LIMITS.items():
-            rpm_count = int(r.get(f"rpm:{model_id}:{user_id}") or 0)
-            rpd_count = int(r.get(f"rpd:{model_id}:{user_id}") or 0)
+        for model_id, cfg in MODEL_CONFIG.items():
+            rpm_count = int(r.get(f"model:{model_id}:minute_requests") or 0)
+            rpd_count = int(r.get(f"model:{model_id}:daily_requests") or 0)
             status[model_id] = {
                 "rpm_used": rpm_count,
-                "rpm_limit": limits["rpm"],
+                "rpm_limit": cfg["rpm"],
                 "rpd_used": rpd_count,
-                "rpd_limit": limits["rpd"],
+                "rpd_limit": cfg["rpd"],
             }
     except Exception:
         pass

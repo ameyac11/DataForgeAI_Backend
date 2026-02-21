@@ -1,6 +1,7 @@
 import os
 from groq import Groq
 from config import get_settings
+from models import MODEL_CONFIG
 
 settings = get_settings()
 
@@ -12,33 +13,35 @@ GROQ_MODELS = {
     "gpt-oss-120b": "openai/gpt-oss-120b",
 }
 
-# models that support web search tool via compound_custom
-WEB_SEARCH_MODELS = {"compound", "compound-mini"}
+# compound models get web_search tool automatically
+COMPOUND_MODELS = {mid for mid, cfg in MODEL_CONFIG.items() if cfg.get("web_search")}
 
-# compound_custom payload — enables web_search and visit_website tools
-COMPOUND_TOOLS = {"tools": {"enabled_tools": ["web_search", "visit_website"]}}
+# compound_custom payload — enable only the web_search tool
+COMPOUND_TOOLS = {"tools": {"enabled_tools": ["web_search"]}}
 
 
 def _get_client() -> Groq:
     return Groq(api_key=settings.GROQ_API_KEY)
 
 
-async def stream_completion(messages: list, model_id: str, use_web_search: bool = True):
+async def stream_completion(messages: list, model_id: str):
     """Async generator yielding text chunks via Groq streaming.
-    Compound models ALWAYS get internet tools enabled via compound_custom."""
+    Compound models always get internet tools via compound_custom."""
     client = _get_client()
     groq_model = GROQ_MODELS.get(model_id, model_id)
+
+    # max_tokens from centralized config
+    max_tokens = MODEL_CONFIG.get(model_id, {}).get("max_output_tokens", 8192)
 
     kwargs = {
         "model": groq_model,
         "messages": messages,
         "temperature": 0.8,
-        "max_completion_tokens": 8000,
+        "max_completion_tokens": max_tokens,
         "stream": True,
     }
 
-    # Compound models always get internet tools via compound_custom
-    if model_id in WEB_SEARCH_MODELS:
+    if model_id in COMPOUND_MODELS:
         kwargs["compound_custom"] = COMPOUND_TOOLS
 
     try:
@@ -55,12 +58,10 @@ async def stream_completion(messages: list, model_id: str, use_web_search: bool 
         raise
 
 
-def generate_completion(messages: list, model_id: str, temperature: float = 0.8, max_tokens: int = 8000, timeout: int = 1200, use_web_search: bool = True) -> str:
-    """Non-streaming completion for dataset generation.
-    Compound models ALWAYS get internet tools via compound_custom.
-    Compound models use streaming internally to collect the full response,
-    because compound_custom tool-call chains leave content=None in a single
-    non-streaming response."""
+def generate_completion(messages: list, model_id: str, temperature: float = 0.8, max_tokens: int = 8192, timeout: int = 1200) -> str:
+    """Non-streaming completion. max_tokens always provided by router from MODEL_CONFIG.
+    Compound models use streaming internally because compound_custom tool-call
+    chains leave content=None in a single non-streaming response."""
     client = _get_client()
     groq_model = GROQ_MODELS.get(model_id, model_id)
 
@@ -72,9 +73,8 @@ def generate_completion(messages: list, model_id: str, temperature: float = 0.8,
             "max_completion_tokens": max_tokens,
         }
 
-        # Compound models: use streaming to collect full response —
-        # non-streaming returns content=None when web_search tool calls are involved
-        if model_id in WEB_SEARCH_MODELS:
+        # compound: stream and collect (non-streaming returns empty for tool-call chains)
+        if model_id in COMPOUND_MODELS:
             kwargs["compound_custom"] = COMPOUND_TOOLS
             kwargs["stream"] = True
             stream = client.chat.completions.create(**kwargs)

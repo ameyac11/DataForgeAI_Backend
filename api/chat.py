@@ -12,10 +12,11 @@ from database.models import Chat, Message, DeletedChat
 from database.enums import MessageRole
 from core.dependencies import require_auth_cookie
 from core.responses import success_response, error_response
-from generator.engine import generate_dataset, generate_dataset_from_chat
-from generator.prompts import CHAT_SYSTEM, CHAT_ROW_REMINDER
-from llm.router import stream_chat, DEFAULT_CHAT_MODEL, MODEL_REGISTRY
-from rate_limit.limiter import record_usage, check_rate_limit
+from generator.engine import generate_dataset_from_chat
+from generator.prompt_builder import build_system_prompt
+from llm.router import stream_chat
+from models import MODEL_CONFIG, DEFAULT_CHAT_MODEL, is_compound
+from rate_limit.limiter import check_and_record
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -50,10 +51,11 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     """Send message and get SSE streamed response. Every response includes a 5-row table."""
     model_id = req.model or DEFAULT_CHAT_MODEL
 
-    # rate limit — return as SSE so the frontend stream handler shows the message
-    if not check_rate_limit(model_id, user_id):
+    # global rate limit (INCR-first, no user_id)
+    rate_error = check_and_record(model_id)
+    if rate_error:
         async def rate_limit_stream():
-            yield f"data: {json.dumps({'type': 'error', 'content': 'Rate limit exceeded for this model. Please wait a moment or switch to a different model.'})}".encode() + b"\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': rate_error['message']})}".encode() + b"\n\n"
         return StreamingResponse(rate_limit_stream(), media_type="text/event-stream", status_code=200)
 
     # get or create chat
@@ -82,42 +84,26 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     history = db.query(Message).filter(Message.chat_id == chat.id).order_by(Message.created_at).all()
     history = history[-HISTORY_LIMIT:]
 
-    # build messages for LLM
-    # Include data mode instruction in the system prompt
-    mode_suffix = ""
-    if req.data_mode:
-        mode_key = req.data_mode.lower()
-        # Map legacy "real-time" to "realistic"
-        if mode_key == "real-time":
-            mode_key = "realistic"
-        mode_map = {
-            "synthetic": "\n\nDATA MODE: Synthetic — Generate completely fictional/synthetic data in your example tables. Use made-up names, addresses, emails. Data should look plausible but NOT be real.",
-            "realistic": "\n\nDATA MODE: Realistic — Generate data mimicking real-world patterns in your example tables. Use realistic names, real city names, properly formatted emails, realistic salary ranges. Data should appear believable but is not sourced from the internet.",
-            "hybrid": "\n\nDATA MODE: Hybrid — Mix realistic formatting with synthetic values in your example tables. Use real city/country names and realistic distributions, but use fictional names and identifiers.",
-            "live-data": "\n\nDATA MODE: Live Data — Generate data that mirrors real-world patterns in your example tables. Use realistic names, real city names, properly formatted data. The full dataset with live web data will be extracted during download using built-in web search tools.",
-        }
-        mode_suffix = mode_map.get(mode_key, "")
+    # normalize generation mode — compound forces live_data
+    generation_mode = (req.data_mode or "synthetic").lower().replace("-", "_")
+    if generation_mode == "real_time":
+        generation_mode = "realistic"
+    if is_compound(model_id):
+        generation_mode = "live_data"
 
-    llm_messages = [{"role": "system", "content": CHAT_SYSTEM + mode_suffix}]
+    # build system prompt via PromptBuilder (rebuilt every request, never stored)
+    system_prompt = build_system_prompt("chat_preview", generation_mode, model_id)
+
+    llm_messages = [{"role": "system", "content": system_prompt}]
     for msg in history:
         llm_messages.append({"role": msg.role.value, "content": msg.content})
 
-    # Inject 5-row / 5-column reminder before final user message
-    if len(llm_messages) >= 2:
-        llm_messages.insert(-1, {"role": "system", "content": CHAT_ROW_REMINDER})
-
-    # Compound models get internet tools automatically via groq_provider
-    # Non-compound models operate offline
-
-    # If images are provided and the model supports vision, build multimodal user message
-    model_info = MODEL_REGISTRY.get(model_id, {})
+    # multimodal: if images provided and model supports vision
+    model_info = MODEL_CONFIG.get(model_id, {})
     if req.images and model_info.get("vision"):
-        # Replace the last user message with multimodal content
         content_parts = [{"type": "text", "text": req.message}]
-        for img_b64 in req.images[:4]:  # limit to 4 images
-            # Auto-detect image type or default to jpeg
+        for img_b64 in req.images[:4]:
             if img_b64.startswith("data:"):
-                # Already has data URI prefix
                 image_url = img_b64
             else:
                 image_url = f"data:image/jpeg;base64,{img_b64}"
@@ -125,7 +111,6 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
                 "type": "image_url",
                 "image_url": {"url": image_url},
             })
-        # Replace last message (which is the current user message) with multimodal
         if llm_messages and llm_messages[-1]["role"] == "user":
             llm_messages[-1]["content"] = content_parts
 
@@ -136,10 +121,8 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
                 full_response += chunk
                 yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
 
-            # check if response has a markdown table
             has_table = bool(re.search(r"\|.*\|.*\|", full_response))
 
-            # save assistant message
             assistant_msg = Message(
                 id=uuid.uuid4(),
                 chat_id=chat.id,
@@ -149,15 +132,11 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
             )
             db.add(assistant_msg)
 
-            # update chat timestamp
             chat.model = model_id
             chat.data_format = req.data_format
             chat.data_mode = req.data_mode
             db.commit()
 
-            record_usage(model_id, user_id)
-
-            # send done event with metadata
             yield f"data: {json.dumps({'type': 'done', 'chat_id': str(chat.id), 'show_download': has_table})}\n\n"
 
         except Exception as e:
@@ -189,28 +168,31 @@ def download_from_chat(
     for msg in db_messages:
         chat_history.append({"role": msg.role.value, "content": msg.content})
 
-    # Determine data mode
+    # Determine data mode — compound forces live_data
     data_mode = req.data_mode or (chat.data_mode or "synthetic").lower()
     if data_mode == "real-time":
         data_mode = "realistic"
     model_id_for_gen = req.model_id or chat.model
-    is_compound = model_id_for_gen in ("compound", "compound-mini")
-    if is_compound:
+    if is_compound(model_id_for_gen):
         data_mode = "live-data"
 
     # Build context string for table name derivation
     context = chat.title or ""
 
     # Pass full chat history to LLM — it decides rows/columns from conversation
-    result = generate_dataset_from_chat(
-        chat_messages=chat_history,
-        fmt=req.format,
-        model_id=model_id_for_gen,
-        user_id=user_id,
-        data_mode=data_mode,
-        default_rows=req.rows,
-        context=context,
-    )
+    try:
+        result = generate_dataset_from_chat(
+            chat_messages=chat_history,
+            fmt=req.format,
+            model_id=model_id_for_gen,
+            data_mode=data_mode,
+            default_rows=req.rows,
+            context=context,
+        )
+    except ValueError as exc:
+        return error_response(str(exc))
+    except Exception as exc:
+        return error_response(f"Dataset generation failed: {str(exc)[:300]}")
 
     # Auto-save dataset
     from api.datasets import auto_save_dataset

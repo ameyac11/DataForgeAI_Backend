@@ -1,76 +1,35 @@
 from llm import groq_provider, github_provider
-
-# which provider handles which model
-GROQ_MODELS = {"compound", "compound-mini", "llama-scout-4", "gpt-oss-120b"}
-GITHUB_MODELS = {"gpt-4.1", "gpt-4.1-nano", "gpt-4o-mini"}
-
-# all available models with display info
-MODEL_REGISTRY = {
-    "compound": {"name": "Compound", "provider": "groq", "web_search": True},
-    "compound-mini": {"name": "Compound Mini", "provider": "groq", "web_search": True},
-    "llama-scout-4": {"name": "Llama 4 Scout", "provider": "groq", "vision": True},
-    "gpt-oss-120b": {"name": "GPT OSS 120B", "provider": "groq"},
-    "gpt-4.1": {"name": "GPT-4.1", "provider": "github", "vision": True},
-    "gpt-4.1-nano": {"name": "GPT-4.1 Nano", "provider": "github"},
-    "gpt-4o-mini": {"name": "GPT-4o Mini", "provider": "github", "vision": True},
-}
-
-DEFAULT_CHAT_MODEL = "llama-scout-4"
-DEFAULT_GEN_MODEL = "gpt-4o-mini"
-
-# fallback order when a model fails
-FALLBACK_CHAIN = ["llama-scout-4", "compound", "compound-mini", "gpt-4o-mini", "gpt-oss-120b", "gpt-4.1"]
+from models import MODEL_CONFIG, DEFAULT_CHAT_MODEL, DEFAULT_GEN_MODEL
 
 
 def get_provider(model_id: str):
-    """Return the right provider module for a model."""
-    if model_id in GROQ_MODELS:
-        return groq_provider
-    if model_id in GITHUB_MODELS:
+    """Return the right provider module. Validates model_id against MODEL_CONFIG."""
+    cfg = MODEL_CONFIG.get(model_id)
+    if cfg is None:
+        raise ValueError(f"Unknown model: {model_id}")
+    if cfg["provider"] == "github":
         return github_provider
-    return groq_provider  # default
+    return groq_provider
 
 
 async def stream_chat(messages: list, model_id: str = None):
-    """Stream chat response with automatic fallback on failure.
-    Compound models automatically get internet tools via groq_provider."""
+    """Stream chat response. Validates model before calling provider."""
     model_id = model_id or DEFAULT_CHAT_MODEL
-    tried = set()
-
-    # try requested model first, then fallback chain
-    models_to_try = [model_id] + [m for m in FALLBACK_CHAIN if m != model_id]
-
-    for mid in models_to_try:
-        if mid in tried:
-            continue
-        tried.add(mid)
-        try:
-            provider = get_provider(mid)
-            async for chunk in provider.stream_completion(messages, mid):
-                yield chunk
-            return  # success, done
-        except Exception:
-            continue  # try next model
-
-    yield "Sorry, all models are currently unavailable. Please try again later."
+    provider = get_provider(model_id)
+    async for chunk in provider.stream_completion(messages, model_id):
+        yield chunk
 
 
-def generate_text(messages: list, model_id: str = None, temperature: float = 0.5, max_tokens: int = 8192, use_web_search: bool = False) -> str:
-    """Non-streaming text generation with fallback."""
+def generate_text(messages: list, model_id: str = None, temperature: float = 0.5) -> str:
+    """Non-streaming text generation. max_tokens pulled from MODEL_CONFIG automatically."""
     model_id = model_id or DEFAULT_GEN_MODEL
-    tried = set()
-    models_to_try = [model_id] + [m for m in FALLBACK_CHAIN if m != model_id]
+    cfg = MODEL_CONFIG.get(model_id)
+    if cfg is None:
+        raise ValueError(f"Unknown model: {model_id}")
 
-    for mid in models_to_try:
-        if mid in tried:
-            continue
-        tried.add(mid)
-        try:
-            provider = get_provider(mid)
-            result = provider.generate_completion(messages, mid, temperature=temperature, max_tokens=max_tokens, use_web_search=use_web_search)
-            if result:
-                return result
-        except Exception:
-            continue
-
-    return ""
+    max_tokens = cfg["max_output_tokens"]
+    provider = get_provider(model_id)
+    result = provider.generate_completion(messages, model_id, temperature=temperature, max_tokens=max_tokens)
+    if not result:
+        raise ValueError(f"Model '{model_id}' returned an empty response. Please try again.")
+    return result
