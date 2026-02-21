@@ -12,7 +12,7 @@ GITHUB_ENDPOINT = "https://models.github.ai/inference"
 
 # github model name mapping
 GITHUB_MODELS = {
-    "gpt-4.1": "openai/gpt-4.1",
+    "gpt-4o": "openai/gpt-4o",
     "gpt-4.1-nano": "openai/gpt-4.1-nano",
     "gpt-4o-mini": "openai/gpt-4o-mini",
 }

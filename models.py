@@ -1,8 +1,8 @@
 # centralized model configuration — single source of truth
 
 MODEL_CONFIG = {
-    "gpt-4.1": {
-        "max_output_tokens": 7900,
+    "gpt-4o": {
+        "max_output_tokens": 3900,
         "rpm": 10,
         "rpd": 50,
         "type": "non_compound",
@@ -10,14 +10,14 @@ MODEL_CONFIG = {
         "vision": True,
     },
     "gpt-4.1-nano": {
-        "max_output_tokens": 7900,
+        "max_output_tokens": 3900,
         "rpm": 15,
         "rpd": 150,
         "type": "non_compound",
         "provider": "github",
     },
     "gpt-4o-mini": {
-        "max_output_tokens": 7900,
+        "max_output_tokens": 3900,
         "rpm": 15,
         "rpd": 150,
         "type": "non_compound",
