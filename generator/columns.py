@@ -15,11 +15,11 @@ MIN_COLUMN_COUNT = 3
 
 def suggest_columns(topic: str, available_types: list, user_id: str = None, column_count: int = None) -> list:
     """AI-powered column suggestion. Returns [{"name": ..., "type": ...}].
-    Default: 10 columns. Max: 10 columns regardless of request."""
+    Default: 4 columns. Max: 10 columns regardless of request."""
     if not topic or not available_types:
         return []
 
-    # clamp column count: default 10, max 10
+    # clamp column count: default 4, max 10
     count = column_count if column_count else DEFAULT_COLUMN_COUNT
     count = min(max(count, MIN_COLUMN_COUNT), MAX_COLUMN_COUNT)
 

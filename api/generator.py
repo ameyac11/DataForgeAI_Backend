@@ -45,7 +45,7 @@ class DownloadRequest(BaseModel):
 class ColumnSuggestRequest(BaseModel):
     topic: str
     available_types: list[str]
-    column_count: Optional[int] = 10
+    column_count: Optional[int] = None
 
 
 @router.post("/preview")
