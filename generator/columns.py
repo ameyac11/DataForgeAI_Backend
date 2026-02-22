@@ -1,8 +1,11 @@
 import json
 import re
+import logging
 from generator.prompts import COLUMN_SUGGEST_SYSTEM, COLUMN_SUGGEST_USER
 from llm.router import generate_text
 from models import COLUMN_SUGGEST_MODEL
+
+logger = logging.getLogger("dataforge.generator.columns")
 
 # column count limits
 DEFAULT_COLUMN_COUNT = 10
@@ -31,6 +34,7 @@ def suggest_columns(topic: str, available_types: list, user_id: str = None, colu
 
         raw = generate_text(messages, COLUMN_SUGGEST_MODEL, temperature=0.5)
         if not raw:
+            logger.warning("[COLUMNS] AI returned empty response for topic '%s', using fallback", topic)
             return _fallback_columns(topic, available_types)
 
         # clean markdown
@@ -42,6 +46,7 @@ def suggest_columns(topic: str, available_types: list, user_id: str = None, colu
         start = cleaned.find("{")
         end = cleaned.rfind("}") + 1
         if start == -1 or end == 0:
+            logger.warning("[COLUMNS] AI response for topic '%s' had no JSON object, using fallback", topic)
             return _fallback_columns(topic, available_types)
 
         parsed = json.loads(cleaned[start:end])
@@ -64,7 +69,9 @@ def suggest_columns(topic: str, available_types: list, user_id: str = None, colu
 
         return valid if valid else _fallback_columns(topic, available_types, count)
 
-    except Exception:
+    except Exception as exc:
+        logger.error("[COLUMNS] AI column suggestion failed for topic '%s': %s: %s",
+                     topic, type(exc).__name__, exc)
         return _fallback_columns(topic, available_types, count)
 
 

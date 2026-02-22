@@ -13,3 +13,4 @@ azure-ai-inference==1.0.0b9
 faker
 pyarrow
 python-multipart
+python-dateutil

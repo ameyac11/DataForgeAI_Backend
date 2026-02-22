@@ -1,5 +1,8 @@
+import logging
 from fastapi import APIRouter
 from core.responses import success_response
+
+logger = logging.getLogger("dataforge.api.health")
 
 router = APIRouter(tags=["health"])
 
@@ -16,15 +19,17 @@ def health_check():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         status["database"] = "connected"
-    except Exception:
+    except Exception as e:
         status["database"] = "disconnected"
+        logger.warning("[HEALTH] PostgreSQL health check failed: %s: %s", type(e).__name__, e)
 
     # check redis
     try:
         from rate_limit.redis_client import get_redis
         get_redis().ping()
         status["redis"] = "connected"
-    except Exception:
+    except Exception as e:
         status["redis"] = "disconnected"
+        logger.warning("[HEALTH] Redis health check failed: %s: %s", type(e).__name__, e)
 
     return success_response(status)

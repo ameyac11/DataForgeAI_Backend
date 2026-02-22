@@ -1,6 +1,8 @@
+import logging
 import httpx
 from config import get_settings
 
+logger = logging.getLogger("dataforge.auth.oauth")
 settings = get_settings()
 
 # google oauth
@@ -40,7 +42,8 @@ async def exchange_google_code(code: str) -> dict:
         tokens = token_resp.json()
         access_token = tokens.get("access_token")
         if not access_token:
-            raise ValueError(f"Google token exchange failed: {tokens}")
+            logger.error("[OAUTH GOOGLE] Token exchange failed: %s", tokens)
+            raise ValueError("Google authentication failed. Please try again.")
 
         user_resp = await client.get(GOOGLE_USERINFO_URL, headers={"Authorization": f"Bearer {access_token}"})
         return user_resp.json()
@@ -69,7 +72,8 @@ async def exchange_github_code(code: str) -> dict:
         tokens = token_resp.json()
         access_token = tokens.get("access_token")
         if not access_token:
-            raise ValueError(f"GitHub token exchange failed: {tokens}")
+            logger.error("[OAUTH GITHUB] Token exchange failed: %s", tokens)
+            raise ValueError("GitHub authentication failed. Please try again.")
 
         headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
 

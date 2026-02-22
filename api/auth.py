@@ -1,4 +1,5 @@
 import uuid
+import logging
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -15,6 +16,8 @@ from core.dependencies import require_auth_cookie, get_current_user
 from core.responses import success_response, error_response
 from config import get_settings
 from database.models import User
+
+logger = logging.getLogger("dataforge.api.auth")
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 settings = get_settings()
@@ -41,13 +44,16 @@ class OnboardingRequest(BaseModel):
 def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     email = req.email.lower().strip()
     if not verify_password(email, req.password):
+        logger.warning("[AUTH LOGIN] Invalid credentials for email '%s'", email)
         return error_response("Invalid credentials", 401)
 
     user = get_user_by_email(db, email)
     if not user:
+        logger.warning("[AUTH LOGIN] User not found for email '%s'", email)
         return error_response("User not found", 404)
 
     set_auth_cookies(response, str(user.id))
+    logger.info("[AUTH LOGIN] User '%s' logged in successfully", user.id)
     return success_response({
         "id": str(user.id),
         "email": user.email,
@@ -61,8 +67,14 @@ def signup(req: SignupRequest, response: Response, db: Session = Depends(get_db)
     email = req.email.lower().strip()
 
     # create in appwrite
-    aw_user = appwrite_create_user(email, req.password, req.username)
+    try:
+        aw_user = appwrite_create_user(email, req.password, req.username)
+    except Exception as exc:
+        logger.error("[AUTH SIGNUP] Appwrite create_user failed for '%s': %s: %s", email, type(exc).__name__, exc)
+        return error_response("Failed to create account. Please try again.", 500)
+
     if not aw_user:
+        logger.error("[AUTH SIGNUP] Appwrite returned None for '%s'", email)
         return error_response("Failed to create account", 500)
 
     provider_user_id = aw_user.get("$id", email)
@@ -73,6 +85,7 @@ def signup(req: SignupRequest, response: Response, db: Session = Depends(get_db)
         db.commit()
 
     set_auth_cookies(response, str(user.id))
+    logger.info("[AUTH SIGNUP] User '%s' signed up (is_new=%s)", user.id, is_new)
     return success_response({
         "id": str(user.id),
         "email": user.email,
@@ -91,18 +104,22 @@ def logout(response: Response):
 def refresh(request: Request, response: Response, db: Session = Depends(get_db)):
     token = request.cookies.get("refresh_token")
     if not token:
+        logger.warning("[AUTH REFRESH] No refresh token in cookies")
         return error_response("No refresh token", 401)
 
     payload = verify_token(token)
     if not payload or payload.get("type") != "refresh":
+        logger.warning("[AUTH REFRESH] Invalid or expired refresh token")
         return error_response("Invalid refresh token", 401)
 
     user_id = payload.get("sub")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        logger.warning("[AUTH REFRESH] User '%s' not found during token refresh", user_id)
         return error_response("User not found", 404)
 
     set_auth_cookies(response, str(user.id))
+    logger.info("[AUTH REFRESH] Tokens refreshed for user '%s'", user_id)
     return success_response({"message": "Tokens refreshed"})
 
 
@@ -133,6 +150,7 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
         user_info = await exchange_google_code(code)
         email = user_info.get("email")
         if not email:
+            logger.warning("[AUTH GOOGLE] No email returned from Google OAuth")
             return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error=no_email")
 
         provider_id = user_info.get("id", email)
@@ -146,9 +164,11 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
             f"{settings.FRONTEND_URL}/onboarding" if is_new else f"{settings.FRONTEND_URL}/app"
         )
         set_auth_cookies(redirect, str(user.id))
+        logger.info("[AUTH GOOGLE] User '%s' authenticated via Google (is_new=%s)", user.id, is_new)
         return redirect
     except Exception as e:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error={str(e)[:50]}")
+        logger.error("[AUTH GOOGLE] Google OAuth callback failed: %s: %s", type(e).__name__, e)
+        return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error=google_auth_failed")
 
 
 # --- github oauth ---
@@ -164,6 +184,7 @@ async def github_callback(code: str, response: Response, db: Session = Depends(g
         user_info = await exchange_github_code(code)
         email = user_info.get("email")
         if not email:
+            logger.warning("[AUTH GITHUB] No email returned from GitHub OAuth")
             return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error=no_email")
 
         provider_id = str(user_info.get("id", email))
@@ -177,9 +198,11 @@ async def github_callback(code: str, response: Response, db: Session = Depends(g
             f"{settings.FRONTEND_URL}/onboarding" if is_new else f"{settings.FRONTEND_URL}/app"
         )
         set_auth_cookies(redirect, str(user.id))
+        logger.info("[AUTH GITHUB] User '%s' authenticated via GitHub (is_new=%s)", user.id, is_new)
         return redirect
     except Exception as e:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error={str(e)[:50]}")
+        logger.error("[AUTH GITHUB] GitHub OAuth callback failed: %s: %s", type(e).__name__, e)
+        return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error=github_auth_failed")
 
 
 # --- onboarding ---

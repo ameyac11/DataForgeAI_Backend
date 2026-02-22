@@ -42,6 +42,9 @@ FORMATTING RULES (CRITICAL — follow exactly):
 8. The table is just a preview — the full dataset is generated separately when downloaded.
 9. NEVER wrap column names in backticks or any code formatting when mentioning them in text. Do NOT write `id`, `price`, `name` — write them plainly as: id, price, name.
 10. Do NOT use inline code spans (single backtick `) anywhere in your response except inside a code block.
+11. For date columns, use ISO 8601 format in preview (e.g. 2024-03-15).
+12. For numeric columns, use plain numbers without currency symbols or commas.
+13. For boolean columns, use true/false.
 
 REMINDER: Your preview table must contain EXACTLY 5 rows. No more, no less.
 Generate EXACTLY 5 columns if the user did NOT specify a column count.
@@ -79,6 +82,9 @@ STRICT RULES:
 - Every row must have all columns from the schema.
 - For id/rank columns, use sequential integers: 1, 2, 3, ...
 - Match the data types discussed in the conversation.
+- Dates must use ISO 8601: "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS".
+- Numbers must be raw values without currency symbols or commas.
+- Booleans must be JSON true/false.
 - Generate contextually accurate data matching the topic."""
 
 
@@ -86,6 +92,9 @@ EXECUTION_BLOCK_CUSTOM_DOWNLOAD = """You are a precise data generator. Generate 
 Follow the exact column names and types provided.
 For ID columns, use sequential integers starting from 1.
 For other numeric columns, use appropriate realistic numbers.
+For date/datetime/timestamp columns, use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS).
+For boolean columns, use true/false (JSON booleans, not strings).
+For numeric values, return raw numbers without currency symbols or commas.
 Output only valid JSON array with proper data types, no explanations or markdown.
 Return ONLY the JSON array — no commentary, no code fences, no markdown."""
 
@@ -156,7 +165,11 @@ Schema: {columns_desc}
 IMPORTANT RULES:
 1. For 'id' or similar identifier columns, use sequential integers: 1, 2, 3, ..., {rows}
 2. For all other columns, generate data matching the column type
-3. Ensure data types are correct: numbers without quotes, strings with quotes
+3. Data type guidelines:
+   - Numbers: raw numeric values (no currency symbols, no commas) e.g. 42500.75
+   - Dates: ISO 8601 format e.g. "2024-03-15" or "2024-03-15T14:30:00"
+   - Booleans: JSON true/false (not strings)
+   - Strings: quoted text
 4. Output ONLY a valid JSON array: [{{"col1":"val1",...}},...]
 5. Generate EXACTLY {rows} rows — no more, no less"""
 
@@ -171,7 +184,11 @@ RULES:
 1. For rank/id columns, use sequential integers: 1, 2, 3, ..., {rows}
 2. ALL other values must come from web search results
 3. If a value cannot be found, use null
-4. Ensure data types match: numbers without quotes, strings with quotes
+4. Data type guidelines:
+   - Numbers: raw numeric values (no currency symbols, no commas)
+   - Dates: ISO 8601 format e.g. "2024-03-15" or "2024-03-15T14:30:00"
+   - Booleans: JSON true/false (not strings)
+   - Strings: quoted text
 5. Output ONLY valid JSON array: [{{"col1":"val1",...}},...]
 6. Generate EXACTLY {rows} rows — no more, no less"""
 
@@ -182,7 +199,11 @@ Default row count if none specified: {default_rows}
 IMPORTANT:
 - Use the EXACT column names from the table shown in the conversation.
 - Generate the EXACT number of rows the user asked for (or {default_rows} if not specified).
-- Return ONLY a valid JSON array. No other text."""
+- Data type guidelines:
+  - Dates: ISO 8601 format e.g. "2024-03-15" or "2024-03-15T14:30:00"
+  - Numbers: raw numeric values (no currency symbols, no commas) e.g. 42500.75
+  - Booleans: JSON true/false (not strings)
+- Return ONLY a valid JSON array. No other text, no markdown, no code fences."""
 
 CHAT_COMPOUND_DOWNLOAD_USER = """Based on the conversation above, search the internet and generate the COMPLETE dataset now.
 Default row count if none specified: {default_rows}
@@ -192,7 +213,11 @@ MANDATORY: Use your web_search tool to find this data. Do NOT make up values.
 IMPORTANT:
 - Use the EXACT column names from the table shown in the conversation.
 - Generate the EXACT number of rows the user asked for (or {default_rows} if not specified).
-- Return ONLY a valid JSON array. No other text."""
+- Data type guidelines:
+  - Dates: ISO 8601 format e.g. "2024-03-15" or "2024-03-15T14:30:00"
+  - Numbers: raw numeric values (no currency symbols, no commas)
+  - Booleans: JSON true/false (not strings)
+- Return ONLY a valid JSON array. No other text, no markdown, no code fences."""
 
 
 # ═══════════════════════════════════════════════════════════════════════

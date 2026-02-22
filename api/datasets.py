@@ -1,6 +1,7 @@
 import uuid
 import json
 import base64
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
@@ -11,6 +12,8 @@ from database.models import UserDataset
 from core.dependencies import require_auth_cookie
 from core.responses import success_response, error_response
 from storage.appwrite_storage import upload_file, download_file, delete_file
+
+logger = logging.getLogger("dataforge.api.datasets")
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["datasets"])
 
@@ -56,6 +59,7 @@ def download_dataset(
     ).first()
 
     if not dataset:
+        logger.warning("[DATASET DOWNLOAD] Dataset '%s' not found for user '%s'", dataset_id, user_id)
         return error_response("Dataset not found", 404)
 
     try:
@@ -77,8 +81,12 @@ def download_dataset(
             media_type=content_type,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
+    except FileNotFoundError:
+        logger.error("[DATASET DOWNLOAD] File not found in storage for dataset '%s'", dataset_id)
+        return error_response("Dataset file not found in storage. It may have been deleted.", 404)
     except Exception as e:
-        return error_response(f"Failed to download: {str(e)[:100]}", 500)
+        logger.error("[DATASET DOWNLOAD] Failed for dataset '%s': %s: %s", dataset_id, type(e).__name__, e)
+        return error_response(f"Failed to download dataset. Please try again.", 500)
 
 
 @router.delete("/{dataset_id}")
@@ -94,15 +102,27 @@ def delete_dataset(
     ).first()
 
     if not dataset:
+        logger.warning("[DATASET DELETE] Dataset '%s' not found for user '%s'", dataset_id, user_id)
         return error_response("Dataset not found", 404)
 
     # 1. Delete file from storage
-    delete_file(str(dataset.id))
+    try:
+        delete_file(str(dataset.id))
+    except Exception as e:
+        logger.error("[DATASET DELETE] Failed to delete file from storage for dataset '%s': %s: %s",
+                     dataset_id, type(e).__name__, e)
 
     # 2. Delete row from PostgreSQL
-    db.delete(dataset)
-    db.commit()
+    try:
+        db.delete(dataset)
+        db.commit()
+    except Exception as e:
+        logger.error("[DATASET DELETE] Database delete failed for dataset '%s': %s: %s",
+                     dataset_id, type(e).__name__, e)
+        db.rollback()
+        return error_response("Failed to delete dataset from database. Please try again.", 500)
 
+    logger.info("[DATASET DELETE] Dataset '%s' deleted by user '%s'", dataset_id, user_id)
     return success_response({"message": "Dataset deleted"})
 
 
@@ -164,9 +184,10 @@ def auto_save_dataset(
     try:
         upload_file(content, dataset_id, f"dataset.{ext}")
     except Exception as e:
+        logger.error("[DATASET SAVE] Upload failed for user '%s': %s: %s", user_id, type(e).__name__, e)
         return {
             "save_status": "upload_failed",
-            "save_message": f"Failed to save dataset: {str(e)[:100]}",
+            "save_message": f"Failed to save dataset to storage. Please try again.",
             "dataset_id": None,
         }
 

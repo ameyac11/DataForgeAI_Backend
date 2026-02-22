@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
@@ -11,6 +12,8 @@ from generator.columns import suggest_columns
 from rate_limit.dependencies import enforce_rate_limit
 from database.session import get_db
 from models import MODEL_CONFIG, is_compound
+
+logger = logging.getLogger("dataforge.api.generator")
 
 router = APIRouter(prefix="/api/v1/generate", tags=["generator"])
 
@@ -49,6 +52,7 @@ class ColumnSuggestRequest(BaseModel):
 def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
     """Generate 5-row preview. Always returns JSON list."""
     if not req.columns:
+        logger.warning("[PREVIEW] Empty columns list from user '%s'", user_id)
         return error_response("No columns provided")
 
     cols = [{"name": c.name, "type": c.type} for c in req.columns]
@@ -65,9 +69,17 @@ def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
             )
             data = result["data"]
         except ValueError as exc:
+            logger.warning("[PREVIEW] Validation error: %s", exc)
             return error_response(str(exc))
         except Exception as exc:
-            return error_response(f"Generation failed: {str(exc)[:300]}")
+            logger.error("[PREVIEW] Generation failed (model=%s): %s: %s",
+                         req.model_id, type(exc).__name__, exc)
+            error_msg = str(exc)[:300]
+            if "rate limit" in error_msg.lower():
+                return error_response(f"Rate limit exceeded. Please wait a moment and try again.", 429)
+            if "authentication" in error_msg.lower():
+                return error_response("LLM authentication error. Please contact support.", 503)
+            return error_response(f"Preview generation failed. Please try again.")
 
     return success_response(data)
 
@@ -76,8 +88,10 @@ def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
 def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), db: Session = Depends(get_db)):
     """Generate full dataset up to 1000 rows."""
     if not req.columns:
+        logger.warning("[DOWNLOAD] Empty columns list from user '%s'", user_id)
         return error_response("No columns provided")
     if req.rows < 1 or req.rows > MAX_ROWS:
+        logger.warning("[DOWNLOAD] Invalid row count %d from user '%s'", req.rows, user_id)
         return error_response(f"Rows must be between 1 and {MAX_ROWS}")
 
     cols = [{"name": c.name, "type": c.type} for c in req.columns]
@@ -102,9 +116,19 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
             data_mode=data_mode,
         )
     except ValueError as exc:
+        logger.warning("[DOWNLOAD] Generation error: %s", exc)
         return error_response(str(exc))
     except Exception as exc:
-        return error_response(f"Generation failed: {str(exc)[:300]}")
+        logger.error("[DOWNLOAD] Generation failed (model=%s, rows=%d, fmt=%s): %s: %s",
+                     req.model_id, req.rows, req.format, type(exc).__name__, exc)
+        error_msg = str(exc)[:300]
+        if "rate limit" in error_msg.lower():
+            return error_response("Rate limit exceeded. Please wait a moment and try again.", 429)
+        if "authentication" in error_msg.lower():
+            return error_response("LLM authentication error. Please contact support.", 503)
+        if "timeout" in error_msg.lower():
+            return error_response("Model timed out. Please try again.", 504)
+        return error_response("Dataset generation failed. Please try again.")
 
     # Auto-save dataset
     from api.datasets import auto_save_dataset
@@ -138,5 +162,10 @@ def columns(req: ColumnSuggestRequest, user_id: str = Depends(require_auth_cooki
     if not req.available_types:
         return error_response("Available types required")
 
-    result = suggest_columns(req.topic, req.available_types, user_id, column_count=req.column_count)
-    return success_response(result)
+    try:
+        result = suggest_columns(req.topic, req.available_types, user_id, column_count=req.column_count)
+        return success_response(result)
+    except Exception as exc:
+        logger.error("[COLUMNS] Column suggestion failed for topic '%s': %s: %s",
+                     req.topic, type(exc).__name__, exc)
+        return error_response("Column suggestion failed. Please try again.")

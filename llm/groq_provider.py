@@ -1,8 +1,10 @@
 import os
+import logging
 from groq import Groq
 from config import get_settings
 from models import MODEL_CONFIG
 
+logger = logging.getLogger("dataforge.llm.groq")
 settings = get_settings()
 
 # groq model name mapping
@@ -52,10 +54,19 @@ async def stream_completion(messages: list, model_id: str):
     except Exception as e:
         error_str = str(e).lower()
         if "429" in error_str or "rate_limit" in error_str:
-            raise Exception(f"RATE_LIMITED:{model_id}")
+            logger.warning("[GROQ STREAM] Rate limit hit for model '%s'", model_id)
+            raise Exception(f"Rate limit exceeded for model '{model_id}'. Please wait a moment and try again.")
         if "413" in error_str or "too large" in error_str:
-            raise Exception(f"TOO_LARGE:{model_id}")
-        raise
+            logger.warning("[GROQ STREAM] Request too large for model '%s'", model_id)
+            raise Exception(f"Request too large for model '{model_id}'. Try reducing message length or image count.")
+        if "401" in error_str or "unauthorized" in error_str or "invalid api key" in error_str:
+            logger.error("[GROQ STREAM] Authentication failed for model '%s' — check GROQ_API_KEY", model_id)
+            raise Exception(f"LLM authentication failed (Groq). Please check server API key configuration.")
+        if "timeout" in error_str or "timed out" in error_str:
+            logger.error("[GROQ STREAM] Timeout for model '%s'", model_id)
+            raise Exception(f"Model '{model_id}' timed out. Please try again.")
+        logger.error("[GROQ STREAM] Unexpected error for model '%s': %s: %s", model_id, type(e).__name__, e)
+        raise Exception(f"LLM error with model '{model_id}': {str(e)[:150]}")
 
 
 def generate_completion(messages: list, model_id: str, temperature: float = 0.8, max_tokens: int = 8192, timeout: int = 1200) -> str:
@@ -89,5 +100,13 @@ def generate_completion(messages: list, model_id: str, temperature: float = 0.8,
     except Exception as e:
         error_str = str(e).lower()
         if "429" in error_str or "rate_limit" in error_str:
-            raise Exception(f"RATE_LIMITED:{model_id}")
-        raise
+            logger.warning("[GROQ GENERATE] Rate limit hit for model '%s'", model_id)
+            raise Exception(f"Rate limit exceeded for model '{model_id}'. Please wait a moment and try again.")
+        if "401" in error_str or "unauthorized" in error_str or "invalid api key" in error_str:
+            logger.error("[GROQ GENERATE] Authentication failed for model '%s' — check GROQ_API_KEY", model_id)
+            raise Exception(f"LLM authentication failed (Groq). Please check server API key configuration.")
+        if "timeout" in error_str or "timed out" in error_str:
+            logger.error("[GROQ GENERATE] Timeout for model '%s'", model_id)
+            raise Exception(f"Model '{model_id}' timed out. Please try again.")
+        logger.error("[GROQ GENERATE] Unexpected error for model '%s': %s: %s", model_id, type(e).__name__, e)
+        raise Exception(f"LLM error with model '{model_id}': {str(e)[:150]}")

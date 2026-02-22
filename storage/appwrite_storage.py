@@ -1,5 +1,6 @@
 """Appwrite object storage for dataset files."""
 import os
+import logging
 
 try:
     from appwrite.client import Client
@@ -12,6 +13,7 @@ except ImportError:
 
 from config import get_settings
 
+logger = logging.getLogger("dataforge.storage")
 settings = get_settings()
 
 LOCAL_STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "local_storage")
@@ -55,6 +57,9 @@ def download_file(file_id: str) -> bytes:
     storage = _get_storage()
     if not storage or not settings.APPWRITE_BUCKET_ID:
         local_path = os.path.join(LOCAL_STORAGE_DIR, "datasets", file_id)
+        if not os.path.exists(local_path):
+            logger.error("[STORAGE] Local file not found: %s", local_path)
+            raise FileNotFoundError(f"Dataset file not found in local storage: {file_id}")
         with open(local_path, "rb") as f:
             return f.read()
 
@@ -79,5 +84,6 @@ def delete_file(file_id: str) -> bool:
             file_id=file_id,
         )
         return True
-    except Exception:
+    except Exception as e:
+        logger.error("[STORAGE] Failed to delete file '%s' from Appwrite: %s: %s", file_id, type(e).__name__, e)
         return False

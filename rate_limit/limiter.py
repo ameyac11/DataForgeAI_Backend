@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+import logging
 from rate_limit.redis_client import get_redis
 from models import MODEL_CONFIG
+
+logger = logging.getLogger("dataforge.rate_limit")
 
 
 def _seconds_until_midnight() -> int:
@@ -62,7 +65,9 @@ def check_and_record(model_id: str) -> dict | None:
 
         return None  # success
 
-    except Exception:
+    except Exception as e:
+        logger.warning("[RATE LIMIT] Redis error during rate check for '%s': %s: %s — allowing request through",
+                       model_id, type(e).__name__, e)
         return None  # redis down, allow through
 
 
@@ -80,6 +85,6 @@ def get_usage_status() -> dict:
                 "rpd_used": rpd_count,
                 "rpd_limit": cfg["rpd"],
             }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("[RATE LIMIT] Redis error during usage status check: %s: %s", type(e).__name__, e)
     return status

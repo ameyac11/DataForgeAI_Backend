@@ -1,4 +1,5 @@
 import os
+import logging
 
 try:
     from appwrite.client import Client
@@ -10,6 +11,7 @@ except ImportError:
 
 from config import get_settings
 
+logger = logging.getLogger("dataforge.auth.appwrite")
 settings = get_settings()
 
 
@@ -27,14 +29,16 @@ def create_user(email: str, password: str, name: str = ""):
     """Create user in Appwrite. Returns appwrite user dict or None."""
     client = _get_client()
     if not client:
-        # mock fallback for dev
+        logger.info("[APPWRITE] No Appwrite client — using dev fallback for create_user('%s')", email)
         return {"$id": email, "email": email, "name": name}
     try:
         users = Users(client)
         return users.create(user_id=ID.unique(), email=email, password=password, name=name)
     except Exception as e:
         if "already exists" in str(e).lower() or "user_already_exists" in str(e).lower():
+            logger.info("[APPWRITE] User '%s' already exists, fetching existing", email)
             return get_user_by_email(email)
+        logger.error("[APPWRITE] Failed to create user '%s': %s: %s", email, type(e).__name__, e)
         raise
 
 
@@ -49,7 +53,8 @@ def get_user_by_email(email: str):
         if result["users"]:
             return result["users"][0]
         return None
-    except Exception:
+    except Exception as e:
+        logger.error("[APPWRITE] Failed to lookup user '%s': %s: %s", email, type(e).__name__, e)
         return None
 
 
@@ -60,7 +65,8 @@ def get_user_by_id(user_id: str):
     try:
         users = Users(client)
         return users.get(user_id)
-    except Exception:
+    except Exception as e:
+        logger.error("[APPWRITE] Failed to get user by id '%s': %s: %s", user_id, type(e).__name__, e)
         return None
 
 
@@ -68,13 +74,12 @@ def verify_password(email: str, password: str) -> bool:
     """Verify credentials via Appwrite. Returns True if valid."""
     client = _get_client()
     if not client:
-        # dev mode: accept any password
+        logger.info("[APPWRITE] No Appwrite client — dev mode: accepting any password for '%s'", email)
         return True
     try:
         users = Users(client)
-        # appwrite server SDK doesn't have direct password verify,
-        # we create a session-like check by trying to get the user
         result = users.list(queries=[f'equal("email", ["{email}"])'])
         return bool(result["users"])
-    except Exception:
+    except Exception as e:
+        logger.error("[APPWRITE] Password verification failed for '%s': %s: %s", email, type(e).__name__, e)
         return False

@@ -1,6 +1,7 @@
 import uuid
 import json
 import re
+import logging
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -17,6 +18,8 @@ from generator.prompt_builder import build_system_prompt
 from llm.router import stream_chat
 from models import MODEL_CONFIG, DEFAULT_CHAT_MODEL, is_compound
 from rate_limit.limiter import check_and_record
+
+logger = logging.getLogger("dataforge.api.chat")
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -54,6 +57,7 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     # global rate limit (INCR-first, no user_id)
     rate_error = check_and_record(model_id)
     if rate_error:
+        logger.warning("[CHAT SEND] Rate limit hit for model '%s' (type=%s)", model_id, rate_error.get('type'))
         async def rate_limit_stream():
             yield f"data: {json.dumps({'type': 'error', 'content': rate_error['message']})}".encode() + b"\n\n"
         return StreamingResponse(rate_limit_stream(), media_type="text/event-stream", status_code=200)
@@ -137,10 +141,24 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
             chat.data_mode = req.data_mode
             db.commit()
 
+            logger.info("[CHAT SEND] Chat %s — response saved (model=%s, has_table=%s)", chat.id, model_id, has_table)
             yield f"data: {json.dumps({'type': 'done', 'chat_id': str(chat.id), 'show_download': has_table})}\n\n"
 
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)[:200]})}\n\n"
+            error_msg = str(e)[:200]
+            if "rate limit" in error_msg.lower():
+                logger.warning("[CHAT SEND] Stream rate-limited for chat %s, model '%s'", chat.id, model_id)
+                error_msg = f"Rate limit exceeded for model '{model_id}'. Please wait a moment and try again."
+            elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                logger.error("[CHAT SEND] Stream timeout for chat %s, model '%s'", chat.id, model_id)
+                error_msg = f"Model '{model_id}' timed out. Please try again."
+            elif "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                logger.error("[CHAT SEND] Auth error for model '%s': %s", model_id, e)
+                error_msg = "LLM authentication error. Please contact support."
+            else:
+                logger.error("[CHAT SEND] Stream error for chat %s, model '%s': %s: %s", chat.id, model_id, type(e).__name__, e)
+                error_msg = f"An error occurred while generating the response. Please try again."
+            yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -157,10 +175,12 @@ def download_from_chat(
     rows and columns the user asked for in the conversation."""
     chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == user_id).first()
     if not chat:
+        logger.warning("[CHAT DOWNLOAD] Chat '%s' not found for user '%s'", chat_id, user_id)
         return error_response("Chat not found", 404)
 
     db_messages = db.query(Message).filter(Message.chat_id == chat.id).order_by(Message.created_at).all()
     if not db_messages:
+        logger.warning("[CHAT DOWNLOAD] Chat '%s' has no messages", chat_id)
         return error_response("No messages in chat")
 
     # Build chat history as plain dicts for the LLM
@@ -190,9 +210,19 @@ def download_from_chat(
             context=context,
         )
     except ValueError as exc:
+        logger.warning("[CHAT DOWNLOAD] Validation error for chat '%s': %s", chat_id, exc)
         return error_response(str(exc))
     except Exception as exc:
-        return error_response(f"Dataset generation failed: {str(exc)[:300]}")
+        logger.error("[CHAT DOWNLOAD] Generation failed for chat '%s', model '%s': %s: %s",
+                     chat_id, model_id_for_gen, type(exc).__name__, exc)
+        error_msg = str(exc)[:300]
+        if "rate limit" in error_msg.lower():
+            return error_response(f"Rate limit exceeded for model '{model_id_for_gen}'. Please wait and try again.", 429)
+        if "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
+            return error_response("LLM authentication error. Please contact support.", 503)
+        if "timeout" in error_msg.lower():
+            return error_response(f"Model '{model_id_for_gen}' timed out. Please try again.", 504)
+        return error_response(f"Dataset generation failed. Please try again.")
 
     # Auto-save dataset
     from api.datasets import auto_save_dataset

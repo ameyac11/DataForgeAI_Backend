@@ -1,3 +1,4 @@
+import logging
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import (
     SystemMessage, UserMessage, AssistantMessage,
@@ -6,6 +7,7 @@ from azure.ai.inference.models import (
 from azure.core.credentials import AzureKeyCredential
 from config import get_settings
 
+logger = logging.getLogger("dataforge.llm.github")
 settings = get_settings()
 
 GITHUB_ENDPOINT = "https://models.github.ai/inference"
@@ -68,7 +70,21 @@ async def stream_completion(messages: list, model_id: str):
             if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
     except Exception as e:
-        raise Exception(f"GITHUB_ERROR:{model_id}:{str(e)[:100]}")
+        error_str = str(e).lower()
+        if "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+            logger.warning("[GITHUB STREAM] Rate limit hit for model '%s'", model_id)
+            raise Exception(f"Rate limit exceeded for model '{model_id}'. Please wait a moment and try again.")
+        if "401" in error_str or "unauthorized" in error_str or "invalid" in error_str:
+            logger.error("[GITHUB STREAM] Authentication failed for model '%s' — check GITHUB_TOKEN", model_id)
+            raise Exception(f"LLM authentication failed (GitHub Models). Please check server API key configuration.")
+        if "timeout" in error_str or "timed out" in error_str:
+            logger.error("[GITHUB STREAM] Timeout for model '%s'", model_id)
+            raise Exception(f"Model '{model_id}' timed out. Please try again.")
+        if "413" in error_str or "too large" in error_str or "content_length" in error_str:
+            logger.warning("[GITHUB STREAM] Request too large for model '%s'", model_id)
+            raise Exception(f"Request too large for model '{model_id}'. Try reducing message length or image count.")
+        logger.error("[GITHUB STREAM] Unexpected error for model '%s': %s: %s", model_id, type(e).__name__, e)
+        raise Exception(f"LLM error with model '{model_id}': {str(e)[:150]}")
 
 
 def generate_completion(messages: list, model_id: str, temperature: float = 0.5, max_tokens: int = 8192, timeout: int = 120) -> str:
@@ -85,4 +101,15 @@ def generate_completion(messages: list, model_id: str, temperature: float = 0.5,
         )
         return response.choices[0].message.content or ""
     except Exception as e:
-        raise Exception(f"GITHUB_ERROR:{model_id}:{str(e)[:100]}")
+        error_str = str(e).lower()
+        if "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+            logger.warning("[GITHUB GENERATE] Rate limit hit for model '%s'", model_id)
+            raise Exception(f"Rate limit exceeded for model '{model_id}'. Please wait a moment and try again.")
+        if "401" in error_str or "unauthorized" in error_str or "invalid" in error_str:
+            logger.error("[GITHUB GENERATE] Authentication failed for model '%s' — check GITHUB_TOKEN", model_id)
+            raise Exception(f"LLM authentication failed (GitHub Models). Please check server API key configuration.")
+        if "timeout" in error_str or "timed out" in error_str:
+            logger.error("[GITHUB GENERATE] Timeout for model '%s'", model_id)
+            raise Exception(f"Model '{model_id}' timed out. Please try again.")
+        logger.error("[GITHUB GENERATE] Unexpected error for model '%s': %s: %s", model_id, type(e).__name__, e)
+        raise Exception(f"LLM error with model '{model_id}': {str(e)[:150]}")
