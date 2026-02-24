@@ -70,9 +70,6 @@ async def stream_completion(messages: list, model_id: str):
 
 
 def generate_completion(messages: list, model_id: str, temperature: float = 0.8, max_tokens: int = 8192, timeout: int = 1200) -> str:
-    """Non-streaming completion. max_tokens always provided by router from MODEL_CONFIG.
-    Compound models use streaming internally because compound_custom tool-call
-    chains leave content=None in a single non-streaming response."""
     client = _get_client()
     groq_model = GROQ_MODELS.get(model_id, model_id)
 
