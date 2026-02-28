@@ -1,7 +1,7 @@
 fastapi==0.128.0
 uvicorn==0.40.0
 pydantic==2.12.5
-pydantic-settings
+pydantic-settings==2.13.0
 sqlalchemy==2.0.45
 psycopg2-binary==2.9.11
 redis==7.1.0
@@ -10,7 +10,12 @@ appwrite==14.1.0
 httpx==0.28.1
 groq==1.0.0
 azure-ai-inference==1.0.0b9
-faker
-pyarrow
-python-multipart
-python-dateutil
+faker==40.4.0
+pyarrow==23.0.1
+python-multipart==0.0.22
+python-dateutil==2.9.0.post0
+pandas==3.0.1
+reportlab==4.4.10
+numpy==2.4.2
+matplotlib==3.10.8
+seaborn==0.13.2
