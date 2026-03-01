@@ -10,8 +10,9 @@ from generator.engine import generate_dataset, MAX_ROWS
 from generator import faker_engine
 from generator.columns import suggest_columns
 from rate_limit.dependencies import enforce_rate_limit
+from rate_limit.limiter import check_dataset_limit, RateLimitError
 from database.session import get_db
-from models import MODEL_CONFIG, is_compound
+from llm.model_config import MODEL_CONFIG, is_compound_model
 
 logger = logging.getLogger("dataforge.api.generator")
 
@@ -94,6 +95,13 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
         logger.warning("[DOWNLOAD] Invalid row count %d from user '%s'", req.rows, user_id)
         return error_response(f"Rows must be between 1 and {MAX_ROWS}")
 
+    # per-user daily dataset limit
+    try:
+        check_dataset_limit(user_id)
+    except RateLimitError as exc:
+        logger.warning("[DOWNLOAD] User '%s' hit daily dataset limit", user_id)
+        return error_response(str(exc), 429)
+
     cols = [{"name": c.name, "type": c.type} for c in req.columns]
 
     # rate limit check for AI mode (global, no user_id)
@@ -104,7 +112,7 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
     data_mode = req.data_mode.lower() if req.data_mode else "synthetic"
     if data_mode == "real-time":
         data_mode = "realistic"
-    if req.model_id and is_compound(req.model_id):
+    if req.model_id and is_compound_model(req.model_id):
         data_mode = "live-data"
 
     result = None

@@ -3,11 +3,11 @@ import re
 import logging
 from generator import faker_engine
 from generator.formatter import format_output, format_as_json, format_as_csv, format_as_sql, format_as_parquet
-from generator.prompts import CUSTOM_GEN_USER, CUSTOM_COMPOUND_GEN_USER, CHAT_DOWNLOAD_USER, CHAT_COMPOUND_DOWNLOAD_USER
-from generator.prompt_builder import build_system_prompt
+from final_prompt.prompts import CUSTOM_GEN_USER, CUSTOM_COMPOUND_GEN_USER, CHAT_DOWNLOAD_USER, CHAT_COMPOUND_DOWNLOAD_USER
+from final_prompt.prompt_builder import build_system_prompt
 from generator.normalizer import normalize_records, normalize_records_inferred, repair_json
 from llm.router import generate_text
-from models import DEFAULT_GEN_MODEL, is_compound
+from llm.model_config import DEFAULT_GEN_MODEL, is_compound_model, resolve_behavior
 from rate_limit.limiter import check_and_record
 
 logger = logging.getLogger("dataforge.generator.engine")
@@ -61,14 +61,17 @@ def _generate_ai(columns: list, rows: int, context: str, model_id: str, data_mod
             normalized_mode = "realistic"
 
         # compound models always use live_data (forced by prompt_builder too)
-        if is_compound(model_id):
+        if is_compound_model(model_id):
             normalized_mode = "live_data"
+
+        # resolve behavior mode for sampling parameters
+        behavior = resolve_behavior(normalized_mode)
 
         # build system prompt via PromptBuilder
         system_prompt = build_system_prompt("custom_download", normalized_mode, model_id)
 
         # pick the right user prompt template
-        if is_compound(model_id):
+        if is_compound_model(model_id):
             user_prompt = CUSTOM_COMPOUND_GEN_USER.format(
                 rows=rows, columns_desc=columns_desc, context_line=context_line,
             )
@@ -82,8 +85,8 @@ def _generate_ai(columns: list, rows: int, context: str, model_id: str, data_mod
             {"role": "user", "content": user_prompt},
         ]
 
-        logger.info("[ENGINE] Generating %d rows with model '%s' (mode=%s)", rows, model_id, normalized_mode)
-        raw = generate_text(messages, model_id, temperature=0.5)
+        logger.info("[ENGINE] Generating %d rows with model '%s' (mode=%s, behavior=%s)", rows, model_id, normalized_mode, behavior["resolved_mode"])
+        raw = generate_text(messages, model_id, temperature=behavior["temperature"], top_p=behavior["top_p"])
         if not raw:
             logger.warning("[ENGINE] Model '%s' returned empty response", model_id)
             return []
@@ -124,14 +127,17 @@ def generate_dataset_from_chat(
     normalized_mode = data_mode.lower().replace("-", "_")
     if normalized_mode == "real_time":
         normalized_mode = "realistic"
-    if is_compound(model_id):
+    if is_compound_model(model_id):
         normalized_mode = "live_data"
+
+    # resolve behavior mode for sampling parameters
+    behavior = resolve_behavior(normalized_mode)
 
     # build system prompt via PromptBuilder
     system_prompt = build_system_prompt("chat_download", normalized_mode, model_id)
 
     # pick user prompt template
-    if is_compound(model_id):
+    if is_compound_model(model_id):
         user_prompt = CHAT_COMPOUND_DOWNLOAD_USER.format(default_rows=default_rows)
     else:
         user_prompt = CHAT_DOWNLOAD_USER.format(
@@ -146,7 +152,7 @@ def generate_dataset_from_chat(
 
     logger.info("[ENGINE CHAT] Generating from chat (model='%s', mode=%s, default_rows=%d)",
                 model_id, normalized_mode, default_rows)
-    raw = generate_text(llm_messages, model_id, temperature=0.8)
+    raw = generate_text(llm_messages, model_id, temperature=behavior["temperature"], top_p=behavior["top_p"])
 
     records = _extract_json(raw, model_id, "ENGINE CHAT")
     if not records:

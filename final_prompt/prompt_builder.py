@@ -1,8 +1,12 @@
-# stateless prompt builder — assembles system prompts per request
-# system prompt = execution block + generation block + security block
+"""PromptBuilder — assembles system prompts per request.
 
-from models import is_compound
-from generator.prompts import (
+system prompt = execution block + generation block + security block
+
+Imports model knowledge from llm.model_config (not hardcoded).
+"""
+
+from llm.model_config import is_compound_model
+from final_prompt.prompts import (
     EXECUTION_BLOCK_CHAT_PREVIEW,
     EXECUTION_BLOCK_CHAT_DOWNLOAD,
     EXECUTION_BLOCK_CUSTOM_DOWNLOAD,
@@ -36,7 +40,7 @@ def build_system_prompt(execution_mode: str, generation_mode: str, model_id: str
         model_id: used for compound detection — forces live_data
     """
     # compound models always use live_data regardless of what frontend sent
-    if is_compound(model_id):
+    if is_compound_model(model_id):
         generation_mode = "live_data"
 
     execution_block = EXECUTION_BLOCKS.get(execution_mode, EXECUTION_BLOCK_CUSTOM_DOWNLOAD)

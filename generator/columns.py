@@ -1,9 +1,9 @@
 import json
 import re
 import logging
-from generator.prompts import COLUMN_SUGGEST_SYSTEM, COLUMN_SUGGEST_USER
+from final_prompt.prompts import COLUMN_SUGGEST_SYSTEM, COLUMN_SUGGEST_USER
 from llm.router import generate_text
-from models import COLUMN_SUGGEST_MODEL
+from llm.model_config import COLUMN_SUGGEST_MODEL
 
 logger = logging.getLogger("dataforge.generator.columns")
 

@@ -1,25 +1,20 @@
+"""Groq LLM Provider — all limits/model-names come from model_config.py."""
 import os
 import logging
 from groq import Groq
 from config import get_settings
-from models import MODEL_CONFIG
+
+from llm.model_config import (
+    MODEL_CONFIG, LLMProvider, BEHAVIOR_MODES,
+    get_api_model_name, get_max_output_tokens,
+    get_reasoning_effort, is_compound_model,
+)
 
 logger = logging.getLogger("dataforge.llm.groq")
 settings = get_settings()
 
-# groq model name mapping
-GROQ_MODELS = {
-    "compound": "groq/compound",
-    "compound-mini": "groq/compound-mini",
-    "llama-scout-4": "meta-llama/llama-4-scout-17b-16e-instruct",
-    "gpt-oss-120b": "openai/gpt-oss-120b",
-}
-
-# compound models get web_search tool automatically
-COMPOUND_MODELS = {mid for mid, cfg in MODEL_CONFIG.items() if cfg.get("web_search")}
-
 # compound_custom payload — enable only the web_search tool
-COMPOUND_TOOLS = {"tools": {"enabled_tools": ["web_search"]}}
+COMPOUND_TOOLS = {"tools": {"enabled_tools": ["web_search", "visit_website"]}}
 
 
 def _get_client() -> Groq:
@@ -30,21 +25,27 @@ async def stream_completion(messages: list, model_id: str):
     """Async generator yielding text chunks via Groq streaming.
     Compound models always get internet tools via compound_custom."""
     client = _get_client()
-    groq_model = GROQ_MODELS.get(model_id, model_id)
+    model_name = get_api_model_name(model_id)
+    _balanced = BEHAVIOR_MODES["balanced"]
 
     # max_tokens from centralized config
-    max_tokens = MODEL_CONFIG.get(model_id, {}).get("max_output_tokens", 8192)
+    max_tokens = get_max_output_tokens(model_id)
 
     kwargs = {
-        "model": groq_model,
+        "model": model_name,
         "messages": messages,
-        "temperature": 0.8,
+        "temperature": _balanced["temperature"],
+        "top_p": _balanced["top_p"],
         "max_completion_tokens": max_tokens,
         "stream": True,
     }
 
-    if model_id in COMPOUND_MODELS:
+    if is_compound_model(model_id):
         kwargs["compound_custom"] = COMPOUND_TOOLS
+
+    effort = get_reasoning_effort(model_id)
+    if effort:
+        kwargs["reasoning_effort"] = effort
 
     try:
         stream = client.chat.completions.create(**kwargs)
@@ -69,20 +70,26 @@ async def stream_completion(messages: list, model_id: str):
         raise Exception(f"LLM error with model '{model_id}': {str(e)[:150]}")
 
 
-def generate_completion(messages: list, model_id: str, temperature: float = 0.8, max_tokens: int = 8192, timeout: int = 1200) -> str:
+def generate_completion(messages: list, model_id: str, temperature: float = 0.5, top_p: float = None, max_tokens: int = 8192, timeout: int = 1200) -> str:
     client = _get_client()
-    groq_model = GROQ_MODELS.get(model_id, model_id)
+    model_name = get_api_model_name(model_id)
+    _balanced = BEHAVIOR_MODES["balanced"]
 
     try:
         kwargs = {
-            "model": groq_model,
+            "model": model_name,
             "messages": messages,
             "temperature": temperature,
+            "top_p": top_p if top_p is not None else _balanced["top_p"],
             "max_completion_tokens": max_tokens,
         }
 
+        effort = get_reasoning_effort(model_id)
+        if effort:
+            kwargs["reasoning_effort"] = effort
+
         # compound: stream and collect (non-streaming returns empty for tool-call chains)
-        if model_id in COMPOUND_MODELS:
+        if is_compound_model(model_id):
             kwargs["compound_custom"] = COMPOUND_TOOLS
             kwargs["stream"] = True
             stream = client.chat.completions.create(**kwargs)

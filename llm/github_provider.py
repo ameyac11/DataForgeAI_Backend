@@ -1,3 +1,4 @@
+"""GitHub Models LLM Provider using Azure AI Inference SDK — limits from model_config.py."""
 import logging
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import (
@@ -7,17 +8,19 @@ from azure.ai.inference.models import (
 from azure.core.credentials import AzureKeyCredential
 from config import get_settings
 
+from llm.model_config import (
+    MODEL_CONFIG,
+    BEHAVIOR_MODES,
+    get_api_model_name,
+    get_max_output_tokens,
+)
+
 logger = logging.getLogger("dataforge.llm.github")
 settings = get_settings()
 
 GITHUB_ENDPOINT = "https://models.github.ai/inference"
 
-# github model name mapping
-GITHUB_MODELS = {
-    "gpt-4o": "openai/gpt-4o",
-    "gpt-4.1-nano": "openai/gpt-4.1-nano",
-    "gpt-4o-mini": "openai/gpt-4o-mini",
-}
+
 
 
 def _get_client(timeout: int = 120) -> ChatCompletionsClient:
@@ -56,14 +59,16 @@ def _convert_messages(messages: list) -> list:
 async def stream_completion(messages: list, model_id: str):
     """Async generator yielding text chunks via GitHub Models streaming."""
     client = _get_client()
-    github_model = GITHUB_MODELS.get(model_id, model_id)
+    model_name = get_api_model_name(model_id)
+    _balanced = BEHAVIOR_MODES["balanced"]
 
     try:
         response = client.complete(
-            model=github_model,
+            model=model_name,
             messages=_convert_messages(messages),
-            temperature=0.2,
-            max_tokens=8000,
+            temperature=_balanced["temperature"],
+            top_p=_balanced["top_p"],
+            max_tokens=get_max_output_tokens(model_id),
             stream=True,
         )
         for chunk in response:
@@ -87,16 +92,18 @@ async def stream_completion(messages: list, model_id: str):
         raise Exception(f"LLM error with model '{model_id}': {str(e)[:150]}")
 
 
-def generate_completion(messages: list, model_id: str, temperature: float = 0.5, max_tokens: int = 8192, timeout: int = 120) -> str:
-    """Non-streaming completion. max_tokens always provided by router from MODEL_CONFIG."""
+def generate_completion(messages: list, model_id: str, temperature: float = 0.5, top_p: float = None, max_tokens: int = 8192, timeout: int = 120) -> str:
+    """Non-streaming completion. max_tokens always provided by router from model_config."""
     client = _get_client(timeout)
-    github_model = GITHUB_MODELS.get(model_id, model_id)
+    model_name = get_api_model_name(model_id)
+    _balanced = BEHAVIOR_MODES["balanced"]
 
     try:
         response = client.complete(
-            model=github_model,
+            model=model_name,
             messages=_convert_messages(messages),
             temperature=temperature,
+            top_p=top_p if top_p is not None else _balanced["top_p"],
             max_tokens=max_tokens,
         )
         return response.choices[0].message.content or ""

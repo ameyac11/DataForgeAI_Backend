@@ -14,10 +14,10 @@ from database.enums import MessageRole
 from core.dependencies import require_auth_cookie
 from core.responses import success_response, error_response
 from generator.engine import generate_dataset_from_chat
-from generator.prompt_builder import build_system_prompt
+from final_prompt.prompt_builder import build_system_prompt
 from llm.router import stream_chat
-from models import MODEL_CONFIG, DEFAULT_CHAT_MODEL, is_compound
-from rate_limit.limiter import check_and_record
+from llm.model_config import MODEL_CONFIG, DEFAULT_CHAT_MODEL, is_compound_model
+from rate_limit.limiter import check_and_record, check_query_limit, check_dataset_limit, RateLimitError
 
 logger = logging.getLogger("dataforge.api.chat")
 
@@ -53,6 +53,15 @@ class RenameRequest(BaseModel):
 async def send_message(req: SendRequest, user_id: str = Depends(require_auth_cookie), db: Session = Depends(get_db)):
     """Send message and get SSE streamed response. Every response includes a 5-row table."""
     model_id = req.model or DEFAULT_CHAT_MODEL
+
+    # per-user daily query limit
+    try:
+        check_query_limit(user_id)
+    except RateLimitError as exc:
+        logger.warning("[CHAT SEND] User '%s' hit daily query limit", user_id)
+        async def user_limit_stream():
+            yield f"data: {json.dumps({'type': 'error', 'content': str(exc)})}".encode() + b"\n\n"
+        return StreamingResponse(user_limit_stream(), media_type="text/event-stream", status_code=200)
 
     # global rate limit (INCR-first, no user_id)
     rate_error = check_and_record(model_id)
@@ -92,7 +101,7 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     generation_mode = (req.data_mode or "synthetic").lower().replace("-", "_")
     if generation_mode == "real_time":
         generation_mode = "realistic"
-    if is_compound(model_id):
+    if is_compound_model(model_id):
         generation_mode = "live_data"
 
     # build system prompt via PromptBuilder (rebuilt every request, never stored)
@@ -193,8 +202,15 @@ def download_from_chat(
     if data_mode == "real-time":
         data_mode = "realistic"
     model_id_for_gen = req.model_id or chat.model
-    if is_compound(model_id_for_gen):
+    if is_compound_model(model_id_for_gen):
         data_mode = "live-data"
+
+    # per-user daily dataset limit
+    try:
+        check_dataset_limit(user_id)
+    except RateLimitError as exc:
+        logger.warning("[CHAT DOWNLOAD] User '%s' hit daily dataset limit", user_id)
+        return error_response(str(exc), 429)
 
     # Build context string for table name derivation
     context = chat.title or ""

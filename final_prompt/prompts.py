@@ -1,6 +1,11 @@
-# clean block-based prompt constants
-# system prompt = execution block + generation block + security block
-# assembled by generator/prompt_builder.py per request
+"""
+Clean block-based prompt constants for DataForgeAI.
+
+system prompt = execution block + generation block + security block
+assembled by final_prompt/prompt_builder.py per request
+
+User prompt templates are also centralized here.
+"""
 
 # ═══════════════════════════════════════════════════════════════════════
 # EXECUTION BLOCKS — control output format based on where the call originates
@@ -156,7 +161,7 @@ SECURITY_BLOCK = """SAFETY & SECURITY RULES (STRICTLY ENFORCED):
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# USER PROMPT TEMPLATES — used by engine.py for formatting the user message
+# USER PROMPT TEMPLATES — used by generator/engine.py
 # ═══════════════════════════════════════════════════════════════════════
 
 CUSTOM_GEN_USER = """Generate exactly {rows} rows of data.
