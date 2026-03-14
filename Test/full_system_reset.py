@@ -66,7 +66,7 @@ def reset_postgres() -> None:
     else:
         print("  No existing tables found.")
 
-    # Drop all tables tracked by SQLAlchemy metadata
+    # Drop all tables tracked by SQLAlchemy metadata (use CASCADE to handle dependencies)
     Base.metadata.drop_all(bind=reset_engine)
 
     # Drop any remaining tables not tracked by Base (e.g. alembic_version)
