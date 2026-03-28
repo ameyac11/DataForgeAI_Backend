@@ -1,7 +1,9 @@
 import logging
+import json
 from fastapi import APIRouter, UploadFile, File, Query, Depends
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from core.responses import success_response, error_response
 from core.dependencies import require_auth_cookie
@@ -18,10 +20,17 @@ from analytics.engine import (
 )
 from analytics.report_gen import generate_pdf
 from rate_limit.limiter import check_analytics_limit, RateLimitError
+from llm.router import generate_text
+from llm.model_config import DEFAULT_CHAT_MODEL
 
 logger = logging.getLogger("dataforge.api.analytics")
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
+
+
+class ExplainChartRequest(BaseModel):
+    panel: str
+    context: dict
 
 
 def _get_owned_run(db: Session, user_id: str, session_id: str) -> AnalyticsRun | None:
@@ -314,6 +323,38 @@ async def get_history(
         for run in runs
     ]
     return success_response(data)
+
+
+@router.post("/explain")
+async def explain_chart(
+    req: ExplainChartRequest,
+    user_id: str = Depends(require_auth_cookie),
+):
+    limited = _check_limit(user_id, "explain")
+    if limited:
+        return limited
+
+    try:
+        context_json = json.dumps(req.context, ensure_ascii=True)[:8000]
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a senior data analyst. Explain analytics panel data for business users. "
+                    "Return concise markdown with sections: Key Signal, Interpretation, Recommended Action. "
+                    "Keep under 140 words. Mention caveats if sample size or missing data looks high."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Panel: {req.panel}\nData Context: {context_json}",
+            },
+        ]
+        insight = generate_text(messages, model_id=DEFAULT_CHAT_MODEL, temperature=0.2)
+        return success_response({"insight": insight})
+    except Exception as e:
+        logger.error("Chart explanation failed: %s", e, exc_info=True)
+        return error_response("Failed to explain chart", 500, error_code="EXPLAIN_FAILED")
 
 
 @router.delete("/session")
