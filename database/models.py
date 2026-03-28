@@ -28,6 +28,7 @@ class User(Base):
     auth_providers = relationship("AuthProviderModel", back_populates="user", cascade="all, delete-orphan")
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
     datasets = relationship("UserDataset", back_populates="user", cascade="all, delete-orphan")
+    analytics_runs = relationship("AnalyticsRun", back_populates="user", cascade="all, delete-orphan")
 
 
 class AuthProviderModel(Base):
@@ -105,3 +106,24 @@ class UserDataset(Base):
     created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
 
     user = relationship("User", back_populates="datasets")
+
+
+class AnalyticsRun(Base):
+    __tablename__ = "analytics_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(String(64), unique=True, nullable=False, index=True)
+    filename = Column(Text, nullable=False)
+    file_size_bytes = Column(Integer, nullable=False)
+    rows = Column(Integer, nullable=False)
+    columns = Column(Integer, nullable=False)
+    numeric_columns = Column(Integer, nullable=False, default=0)
+    categorical_columns = Column(Integer, nullable=False, default=0)
+    missing_pct = Column(String(32), nullable=False, default="0.0")
+    memory_bytes = Column(Integer, nullable=False, default=0)
+    state = Column(String(20), nullable=False, default="active")
+    created_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+    last_accessed_at = Column(DateTime(timezone=True), default=now_ist, nullable=False)
+
+    user = relationship("User", back_populates="analytics_runs")
