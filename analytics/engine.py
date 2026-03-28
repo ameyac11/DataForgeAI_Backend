@@ -220,6 +220,67 @@ def data_preview(df: pd.DataFrame, page: int = 1, page_size: int = 50) -> dict:
     }
 
 
+def what_if_simulation(df: pd.DataFrame, target_col: str, driver_col: str, change_pct: float) -> dict:
+    if target_col not in df.columns:
+        return {"error": f"Target column '{target_col}' not found."}
+    if driver_col not in df.columns:
+        return {"error": f"Driver column '{driver_col}' not found."}
+    if not _is_numeric(df[target_col]):
+        return {"error": f"Target column '{target_col}' must be numeric."}
+    if not _is_numeric(df[driver_col]):
+        return {"error": f"Driver column '{driver_col}' must be numeric."}
+
+    clean = df[[driver_col, target_col]].dropna()
+    if len(clean) < 8:
+        return {"error": "Not enough clean rows for simulation. At least 8 rows are required."}
+
+    x = clean[driver_col].astype(float).values
+    y = clean[target_col].astype(float).values
+
+    x_mean = float(np.mean(x))
+    y_mean = float(np.mean(y))
+    if np.isclose(np.std(x), 0):
+        return {"error": f"Driver column '{driver_col}' has near-zero variance."}
+
+    slope, intercept = np.polyfit(x, y, 1)
+    corr = float(np.corrcoef(x, y)[0, 1]) if len(clean) > 1 else 0.0
+
+    simulated_driver = x_mean * (1.0 + (change_pct / 100.0))
+    baseline_target = intercept + slope * x_mean
+    simulated_target = intercept + slope * simulated_driver
+    delta_target = simulated_target - baseline_target
+    pct_target = (delta_target / baseline_target * 100.0) if not np.isclose(baseline_target, 0.0) else 0.0
+
+    confidence = max(0.0, min(1.0, abs(corr)))
+
+    return {
+        "target_column": target_col,
+        "driver_column": driver_col,
+        "change_pct": round(float(change_pct), 3),
+        "baseline": {
+            "driver": _safe_float(x_mean),
+            "target": _safe_float(baseline_target),
+        },
+        "simulated": {
+            "driver": _safe_float(simulated_driver),
+            "target": _safe_float(simulated_target),
+        },
+        "impact": {
+            "target_delta": _safe_float(delta_target),
+            "target_delta_pct": _safe_float(pct_target),
+            "direction": "increase" if delta_target >= 0 else "decrease",
+        },
+        "model": {
+            "slope": _safe_float(slope),
+            "intercept": _safe_float(intercept),
+            "correlation": _safe_float(corr),
+            "confidence": _safe_float(confidence),
+            "sample_size": int(len(clean)),
+        },
+        "error": None,
+    }
+
+
 # helpers
 
 def _is_numeric(series: pd.Series) -> bool:

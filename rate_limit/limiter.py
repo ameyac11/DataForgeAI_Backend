@@ -24,6 +24,7 @@ ANALYTICS_DAILY_LIMITS = {
     "timeseries": 120,
     "preview": 200,
     "report": 20,
+    "simulation": 120,
     "session_delete": 50,
     "history": 100,
 }

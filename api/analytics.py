@@ -16,7 +16,7 @@ from analytics.session_store import (
 from analytics.engine import (
     dataset_summary, column_analysis, distribution_data,
     correlation_matrix, outlier_detection, timeseries_data, data_preview,
-    scatter_data, box_plot_data,
+    scatter_data, box_plot_data, what_if_simulation,
 )
 from analytics.report_gen import generate_pdf
 from rate_limit.limiter import check_analytics_limit, RateLimitError
@@ -263,6 +263,28 @@ async def get_preview(
     if err:
         return err
     return success_response(data_preview(session["df"], page, min(page_size, 200)))
+
+
+@router.get("/simulation")
+async def get_simulation(
+    session_id: str = Query(...),
+    target_col: str = Query(...),
+    driver_col: str = Query(...),
+    change_pct: float = Query(..., ge=-90, le=200),
+    user_id: str = Depends(require_auth_cookie),
+    db: Session = Depends(get_db),
+):
+    limited = _check_limit(user_id, "simulation")
+    if limited:
+        return limited
+    session, err = _get_owned_session(db, user_id, session_id)
+    if err:
+        return err
+
+    result = what_if_simulation(session["df"], target_col, driver_col, change_pct)
+    if result.get("error"):
+        return error_response(result["error"], 400, error_code="SIMULATION_INVALID")
+    return success_response(result)
 
 
 @router.get("/report")

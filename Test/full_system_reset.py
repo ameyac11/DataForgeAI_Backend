@@ -10,7 +10,6 @@ Usage (from the backend/ directory):
 
 import sys
 import os
-import ssl
 import argparse
 from pathlib import Path
 from typing import Optional
@@ -35,6 +34,7 @@ from database.models import (          # noqa: F401 — register all models on B
     DeletedChat,
     Message,
     UserDataset,
+    AnalyticsRun,
 )
 
 settings = get_settings()
@@ -87,26 +87,37 @@ def reset_postgres() -> None:
 
 # ─── Redis ────────────────────────────────────────────────────────────────────
 
+def _make_redis_client() -> redis_lib.Redis:
+    """Build a Redis client with a TLS-first strategy, then fallback to plain TCP."""
+    attempts = [
+        {"ssl": True, "ssl_cert_reqs": None},
+        {"ssl": False, "ssl_cert_reqs": None},
+    ]
+    last_exc = None
+    for mode in attempts:
+        try:
+            client = redis_lib.Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                password=settings.REDIS_PASSWORD or None,
+                decode_responses=True,
+                socket_connect_timeout=10,
+                **mode,
+            )
+            client.ping()
+            return client
+        except Exception as exc:  # pragma: no cover - network/env dependent
+            last_exc = exc
+    raise last_exc
+
+
 def reset_redis() -> None:
     """Flush all Redis keys (FLUSHALL). Uses SSL for Redis Cloud."""
     print("\n── Redis Reset ──────────────────────────────────────")
     print(f"  Host : {settings.REDIS_HOST}:{settings.REDIS_PORT}")
 
-    ssl_ctx = ssl.create_default_context()
-    ssl_ctx.check_hostname = False
-    ssl_ctx.verify_mode = ssl.CERT_NONE
-
     try:
-        client = redis_lib.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            password=settings.REDIS_PASSWORD or None,
-            ssl=False,
-            ssl_cert_reqs=None,
-            decode_responses=True,
-            socket_connect_timeout=10,
-        )
-        client.ping()
+        client = _make_redis_client()
         before = client.dbsize()
         client.flushall()
         print(f"  ✓ Redis flushed  (was {before} keys)")
@@ -135,8 +146,8 @@ def reset_analytics_sessions() -> None:
 # ─── Per-user reset ───────────────────────────────────────────────────────────
 
 def list_all_users():
-    from database.session import get_db
-    db = next(get_db())
+    from database.session import SessionLocal
+    db = SessionLocal()
     try:
         return db.query(User).order_by(User.created_at.desc()).all()
     finally:
@@ -185,26 +196,16 @@ def reset_user_data(user_id: str) -> None:
 
     # 1. Redis — clear per-user usage/rate keys
     try:
-        ssl_ctx = ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
-        r = redis_lib.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            password=settings.REDIS_PASSWORD or None,
-            ssl=True,
-            ssl_cert_reqs=None,
-            decode_responses=True,
-            socket_connect_timeout=10,
-        )
+        r = _make_redis_client()
         patterns = [
             f"usage:queries:{user_id}",
-            f"usage:datasets_generated:{user_id}",
+            f"usage:datasets:{user_id}",
+            f"usage:analytics:*:{user_id}",
             f"ratelimit:{user_id}:*",
         ]
         deleted = 0
         for pattern in patterns:
-            keys = r.keys(pattern)
+            keys = list(r.scan_iter(match=pattern, count=500))
             if keys:
                 r.delete(*keys)
                 deleted += len(keys)
@@ -217,12 +218,13 @@ def reset_user_data(user_id: str) -> None:
         with reset_engine.begin() as conn:
             conn.execute(text(
                 "DELETE FROM messages WHERE chat_id IN "
-                f"(SELECT id FROM chats WHERE user_id = '{user_id}')"
-            ))
-            conn.execute(text(f"DELETE FROM deleted_chats WHERE user_id = '{user_id}'"))
-            conn.execute(text(f"DELETE FROM chats WHERE user_id = '{user_id}'"))
-            conn.execute(text(f"DELETE FROM user_datasets WHERE user_id = '{user_id}'"))
-        print("  ✓ PostgreSQL: deleted messages, chats, deleted_chats, datasets")
+                "(SELECT id FROM chats WHERE user_id = CAST(:user_id AS uuid))"
+            ), {"user_id": user_id})
+            conn.execute(text("DELETE FROM deleted_chats WHERE user_id = CAST(:user_id AS uuid)"), {"user_id": user_id})
+            conn.execute(text("DELETE FROM chats WHERE user_id = CAST(:user_id AS uuid)"), {"user_id": user_id})
+            conn.execute(text("DELETE FROM user_datasets WHERE user_id = CAST(:user_id AS uuid)"), {"user_id": user_id})
+            conn.execute(text("DELETE FROM analytics_runs WHERE user_id = CAST(:user_id AS uuid)"), {"user_id": user_id})
+        print("  ✓ PostgreSQL: deleted messages, chats, deleted_chats, datasets, analytics_runs")
     except Exception as exc:
         print(f"  ✗ PostgreSQL error: {exc}")
 
