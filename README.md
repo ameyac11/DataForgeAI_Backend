@@ -41,8 +41,15 @@
 
 <br />
 
-The core API for **DataForgeAI** — conversational dataset generation, custom schema-based generation, analytics, and secure auth.  
-Works with the [Frontend](../frontend/README.md) for the full experience.
+The core API for **DataForgeAI** — conversational dataset generation, custom schema-based generation, analytics, and secure auth. Pair it with the [Frontend](https://github.com/ameyac11/DataForgeAI_Frontend) for the full user experience.
+
+---
+
+## 🔗 Related Repository
+
+| Repo | Description |
+|:---|:---|
+| 🌟 [**DataForgeAI Frontend**](https://github.com/ameyac11/DataForgeAI_Frontend) | React SPA — chat UI, analytics workspace, dataset library |
 
 ---
 
@@ -73,19 +80,61 @@ Works with the [Frontend](../frontend/README.md) for the full experience.
 
 ---
 
+## 📋 Prerequisites
+
+- **Python** 3.10+
+- **PostgreSQL** and **Redis** running locally (or remote instances)
+- API keys for at least one LLM provider (Groq and/or GitHub Models)
+- Optional: [Appwrite](https://appwrite.io/) project for cloud dataset storage
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
+git clone https://github.com/ameyac11/DataForgeAI_Backend.git
+cd DataForgeAI_Backend
+
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 # source .venv/bin/activate     # macOS / Linux
 
 pip install -r requirements.txt
+cp .env.example .env            # fill in database, Redis, JWT, and LLM keys
 uvicorn main:app --reload
 ```
 
 🌐 API → `http://localhost:8000`  
 📖 Docs → [`/docs`](http://localhost:8000/docs) · [`/redoc`](http://localhost:8000/redoc)
+
+### Environment Variables
+
+Copy `.env.example` and configure:
+
+| Group | Key variables |
+|:---|:---|
+| **Database** | `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` |
+| **Redis** | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` |
+| **Auth** | `JWT_SECRET`, OAuth client IDs/secrets for Google & GitHub |
+| **URLs** | `FRONTEND_URL`, `BACKEND_URL` |
+| **LLM** | `GROQ_API_KEY`, `GITHUB_TOKEN` |
+| **Storage** | Appwrite `APPWRITE_*` keys (optional — falls back to local storage) |
+
+---
+
+## 📁 Project Structure
+
+```
+├── main.py           # FastAPI app entry point
+├── api/              # Route handlers (auth, chat, analytics, datasets)
+├── analytics/        # Analytics engine & PDF report generation
+├── auth/             # JWT & OAuth helpers
+├── database/         # SQLAlchemy models & DB setup
+├── generator/        # Dataset generation engine
+├── llm/              # Groq & GitHub Models providers
+├── rate_limit/       # Redis-backed rate limiting
+└── final_prompt/     # Prompt building for chat & generation
+```
 
 ---
 
