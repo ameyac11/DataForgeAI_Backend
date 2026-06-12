@@ -6,7 +6,7 @@ from llm.model_config import MODEL_CONFIG
 logger = logging.getLogger("dataforge.rate_limit")
 
 
-# ── Global per-user daily limits (applies across all models) ───────────────────
+# global user daily limits
 USER_DAILY_LIMITS = {
     "datasets_generated": 50,
     "queries": 50,
@@ -47,10 +47,10 @@ def _seconds_until_midnight() -> int:
     return max(int((midnight - now).total_seconds()), 1)
 
 
-# ── Per-user daily query limit ─────────────────────────────────────────────────
+# per user query limit
 
 def check_query_limit(user_id: str) -> None:
-    """Check and increment the user's daily query count."""
+    # check daily queries
     try:
         r = get_redis()
         key = f"usage:queries:{user_id}"
@@ -72,7 +72,7 @@ def check_query_limit(user_id: str) -> None:
 
 
 def check_dataset_limit(user_id: str) -> None:
-    """Check and increment the user's daily dataset generation count."""
+    # check daily datasets
     try:
         r = get_redis()
         key = f"usage:datasets:{user_id}"
@@ -94,7 +94,7 @@ def check_dataset_limit(user_id: str) -> None:
 
 
 def get_user_usage(user_id: str) -> dict:
-    """Return current usage vs limits for a user."""
+    # get user usage
     try:
         r = get_redis()
         pipe = r.pipeline()
@@ -114,7 +114,7 @@ def get_user_usage(user_id: str) -> dict:
 
 
 def check_analytics_limit(user_id: str, endpoint: str) -> None:
-    """Check and increment per-user daily analytics usage per endpoint."""
+    # check analytics usage
     endpoint_key = endpoint.strip().lower()
     limit = ANALYTICS_DAILY_LIMITS.get(endpoint_key, 120)
     try:
@@ -138,18 +138,10 @@ def check_analytics_limit(user_id: str, endpoint: str) -> None:
 
 
 def check_and_record(model_id: str) -> dict | None:
-    """INCR-first rate limiter. Global per-model limits (not per-user).
-
-    1. INCR the counter
-    2. Set TTL if counter == 1 (first request in window)
-    3. If counter > limit → DECR back, return error dict
-    4. If under limit → return None (success)
-
-    Returns None on success, or error dict on rate limit exceeded.
-    """
+    # incr rate limit
     cfg = MODEL_CONFIG.get(model_id)
     if not cfg:
-        return None  # unknown model, allow through
+        return None
 
     rpm_limit = cfg["rpm"]
     rpd_limit = cfg["rpd"]
@@ -159,7 +151,7 @@ def check_and_record(model_id: str) -> dict | None:
         rpm_key = f"model:{model_id}:minute_requests"
         rpd_key = f"model:{model_id}:daily_requests"
 
-        # check RPM first
+        # check min limit
         rpm_count = r.incr(rpm_key)
         if rpm_count == 1:
             r.expire(rpm_key, 60)
@@ -172,13 +164,13 @@ def check_and_record(model_id: str) -> dict | None:
                 "message": "Rate limit exceeded for this model. Please wait a moment.",
             }
 
-        # check RPD
+        # check daily limit
         rpd_count = r.incr(rpd_key)
         if rpd_count == 1:
             r.expire(rpd_key, _seconds_until_midnight())
         if rpd_count > rpd_limit:
             r.decr(rpd_key)
-            # also roll back the RPM increment since the request won't proceed
+            # rollback min count
             r.decr(rpm_key)
             return {
                 "error_code": "RATE_LIMIT_EXCEEDED",
@@ -187,16 +179,16 @@ def check_and_record(model_id: str) -> dict | None:
                 "message": "Daily limit reached for this model. Try again tomorrow.",
             }
 
-        return None  # success
+        return None
 
     except Exception as e:
         logger.warning("[RATE LIMIT] Redis error during rate check for '%s': %s: %s — allowing request through",
                        model_id, type(e).__name__, e)
-        return None  # redis down, allow through
+        return None
 
 
 def get_usage_status() -> dict:
-    """Get current global usage for all models."""
+    # get all usage
     status = {}
     try:
         r = get_redis()

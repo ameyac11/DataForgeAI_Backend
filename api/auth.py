@@ -66,7 +66,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
 def signup(req: SignupRequest, response: Response, db: Session = Depends(get_db)):
     email = req.email.lower().strip()
 
-    # create in appwrite
+        # create user in appwrite
     try:
         aw_user = appwrite_create_user(email, req.password, req.username)
     except Exception as exc:
@@ -137,7 +137,7 @@ def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)
     })
 
 
-# --- google oauth ---
+# google oauth routes
 
 @router.get("/google")
 def google_login():
@@ -171,7 +171,7 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
         return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error=google_auth_failed")
 
 
-# --- github oauth ---
+# github oauth routes
 
 @router.get("/github")
 def github_login():
@@ -205,7 +205,7 @@ async def github_callback(code: str, response: Response, db: Session = Depends(g
         return RedirectResponse(f"{settings.FRONTEND_URL}/auth?error=github_auth_failed")
 
 
-# --- onboarding ---
+# onboarding routes
 
 @router.post("/onboarding/complete")
 def complete_onboarding(req: OnboardingRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):

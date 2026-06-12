@@ -1,4 +1,4 @@
-"""Usage Status API — returns per-user usage stats for the settings dialog."""
+# usage status routes
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/usage", tags=["usage"])
 
 @router.get("/status")
 def get_usage_status(user_id: str = Depends(require_auth_cookie)):
-    """Get unified usage status for the current user."""
+    # get current user usage
     try:
         usage = get_user_usage(user_id)
         return success_response(usage)
@@ -25,5 +25,5 @@ def get_usage_status(user_id: str = Depends(require_auth_cookie)):
 
 @router.get("/limits")
 def get_usage_limits():
-    """Get configured usage limits."""
+    # get configured limits
     return success_response(USER_DAILY_LIMITS)

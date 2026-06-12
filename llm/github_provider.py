@@ -1,4 +1,4 @@
-"""GitHub Models LLM Provider using Azure AI Inference SDK — limits from model_config.py."""
+# github llm provider
 import logging
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import (
@@ -31,7 +31,7 @@ def _get_client(timeout: int = 120) -> ChatCompletionsClient:
 
 
 def _convert_messages(messages: list) -> list:
-    """Convert dict messages to Azure AI SDK message objects."""
+    # convert to azure format
     converted = []
     for msg in messages:
         role = msg["role"]
@@ -40,7 +40,7 @@ def _convert_messages(messages: list) -> list:
             converted.append(SystemMessage(content=content))
         elif role == "user":
             if isinstance(content, list):
-                # Multimodal content with text + images
+                # multimodal text images
                 parts = []
                 for part in content:
                     if part.get("type") == "text":
@@ -57,7 +57,7 @@ def _convert_messages(messages: list) -> list:
 
 
 async def stream_completion(messages: list, model_id: str):
-    """Async generator yielding text chunks via GitHub Models streaming."""
+    # stream azure completion
     client = _get_client()
     model_name = get_api_model_name(model_id)
     _balanced = BEHAVIOR_MODES["balanced"]
@@ -93,7 +93,7 @@ async def stream_completion(messages: list, model_id: str):
 
 
 def generate_completion(messages: list, model_id: str, temperature: float = 0.5, top_p: float = None, max_tokens: int = 8192, timeout: int = 120) -> str:
-    """Non-streaming completion. max_tokens always provided by router from model_config."""
+    # get azure completion
     client = _get_client(timeout)
     model_name = get_api_model_name(model_id)
     _balanced = BEHAVIOR_MODES["balanced"]

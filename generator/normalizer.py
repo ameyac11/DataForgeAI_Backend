@@ -1,22 +1,4 @@
-"""Industry-standard output normalizer for AI-generated datasets.
-
-Instead of rejecting data on format mismatches, this module robustly
-parses and coerces every cell to the expected type.  It handles:
-
-- Dates    — 30+ strptime patterns + python-dateutil fuzzy -> ISO 8601
-- Numbers  — strips currency symbols, commas, units -> int / float
-- Booleans — recognises yes/no/true/false/on/off/1/0/active/...
-- Strings  — trim, collapse whitespace, strip stray quotes
-- JSON repair — fixes common LLM output issues (trailing commas, etc.)
-- Null handling — "null", "none", "N/A", "" -> type-appropriate default
-- Smart type inference — infers column types from sample values
-
-Public API
-----------
-normalize_records(records, columns)          -> list[dict]
-normalize_records_inferred(records)          -> tuple[list[dict], list[dict]]
-repair_json(raw_text)                        -> str
-"""
+"""Normalize AI datasets."""
 
 import json
 import logging
@@ -31,9 +13,7 @@ except ImportError:
 
 logger = logging.getLogger("dataforge.generator.normalizer")
 
-# =====================================================================
-# TYPE BUCKETS
-# =====================================================================
+# type buckets
 
 NUMERIC_INT_TYPES = {
     "number", "integer", "int", "age", "id", "rank",
@@ -58,7 +38,7 @@ DATE_TYPES = {
 
 TIME_TYPES = {"time", "duration"}
 
-# Types that should stay as strings even if they look numeric
+# force string types
 STRING_FORCE_TYPES = {
     "string", "text", "name", "first name", "last name", "full name",
     "email", "phone", "phone number", "address", "street", "city",
@@ -70,15 +50,13 @@ STRING_FORCE_TYPES = {
     "image url", "category", "tag", "label", "title", "status",
 }
 
-# =====================================================================
-# NULL DETECTION
-# =====================================================================
+# null detection
 
 _NULL_STRINGS = {"null", "none", "n/a", "na", "nan", "nil", "-", "\u2014", "undefined", ""}
 
 
 def _is_null(value) -> bool:
-    """Check if a value represents null/missing data."""
+    # check for null
     if value is None:
         return True
     if isinstance(value, str) and value.strip().lower() in _NULL_STRINGS:
@@ -86,30 +64,20 @@ def _is_null(value) -> bool:
     return False
 
 
-# =====================================================================
-# JSON REPAIR - fix common LLM output issues before json.loads
-# =====================================================================
+# repair json
 
 def repair_json(raw: str) -> str:
-    """Attempt to repair malformed JSON from LLM output.
-
-    Handles:
-    - Markdown code fences
-    - Leading/trailing non-JSON text
-    - Trailing commas before ] or }
-    - Truncated output (missing closing brackets)
-    - JavaScript-style comments
-    """
+    # fix malformed json
     if not raw or not raw.strip():
         return "[]"
 
     text = raw.strip()
 
-    # 1. Strip markdown code fences
+    # strip md fences
     text = re.sub(r"```(?:json|JSON|javascript|JS)?\s*\n?", "", text)
     text = re.sub(r"```\s*$", "", text)
 
-    # 2. Strip leading prose before the first [ or {
+    # strip leading prose
     idx_bracket = text.find("[")
     idx_brace = text.find("{")
     if idx_bracket == -1:
@@ -120,23 +88,23 @@ def repair_json(raw: str) -> str:
     if 0 < first_bracket < len(text):
         text = text[first_bracket:]
 
-    # 3. Strip trailing prose after the last ] or }
+    # strip trailing prose
     last_close = max(text.rfind("]"), text.rfind("}"))
     if last_close != -1:
         text = text[:last_close + 1]
 
-    # 4. Remove JavaScript-style comments
+    # rm js comments
     text = re.sub(r"//[^\n]*", "", text)
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
 
-    # 5. Fix trailing commas:  ,] -> ]  and  ,} -> }
+    # fix trailing commas
     text = re.sub(r",\s*([}\]])", r"\1", text)
 
-    # 6. Fix truncated output - count bracket balance
+    # fix truncated output
     open_brackets = text.count("[") - text.count("]")
     open_braces = text.count("{") - text.count("}")
 
-    # Check for unterminated string
+    # check unterminated string
     if open_braces > 0 or open_brackets > 0:
         in_string = False
         last_char = ""
@@ -150,11 +118,11 @@ def repair_json(raw: str) -> str:
             open_braces = text.count("{") - text.count("}")
             open_brackets = text.count("[") - text.count("]")
 
-    # Close any unclosed braces/brackets
+    # close unclosed brackets
     text += "}" * max(0, open_braces)
     text += "]" * max(0, open_brackets)
 
-    # 7. If the whole thing is a single object, wrap in array
+    # wrap single object
     text_stripped = text.strip()
     if text_stripped.startswith("{") and not text_stripped.startswith("["):
         try:
@@ -166,9 +134,7 @@ def repair_json(raw: str) -> str:
     return text
 
 
-# =====================================================================
-# DATE PARSING
-# =====================================================================
+# date parsing
 
 _STRPTIME_FORMATS = [
     # ISO 8601 variants
@@ -234,13 +200,13 @@ _TIME_OUTPUT_FMT = "%H:%M:%S"
 
 
 def _parse_date(value, expected_type: str = "date") -> str | None:
-    """Parse any date-like string to ISO 8601.  Returns original if unparseable."""
+    # parse to iso8601
     if _is_null(value):
         return None
 
     raw = str(value).strip()
 
-    # Handle Unix timestamps (seconds or milliseconds)
+    # handle unix ts
     if raw.isdigit() and len(raw) >= 8:
         try:
             ts = int(raw)
@@ -252,7 +218,7 @@ def _parse_date(value, expected_type: str = "date") -> str | None:
         except (ValueError, OverflowError, OSError):
             pass
 
-    # Choose output format
+    # set output fmt
     if expected_type in ("time", "duration"):
         out_fmt = _TIME_OUTPUT_FMT
     elif expected_type in ("datetime", "timestamp"):
@@ -260,7 +226,7 @@ def _parse_date(value, expected_type: str = "date") -> str | None:
     else:
         out_fmt = _DATE_OUTPUT_FMT
 
-    # 1) Explicit strptime formats (fast path)
+    # explicit formats
     for fmt in _STRPTIME_FORMATS:
         try:
             dt = datetime.strptime(raw, fmt)
@@ -268,7 +234,7 @@ def _parse_date(value, expected_type: str = "date") -> str | None:
         except ValueError:
             continue
 
-    # 2) python-dateutil fuzzy parsing
+    # fuzzy parse
     if DATEUTIL_AVAILABLE:
         try:
             dt = dateutil_parser.parse(raw, fuzzy=True, dayfirst=False)
@@ -276,7 +242,7 @@ def _parse_date(value, expected_type: str = "date") -> str | None:
         except (ValueError, OverflowError, TypeError):
             pass
 
-    # 3) Regex extraction: find YYYY-MM-DD patterns
+    # extract yyyy-mm-dd
     m = re.search(r"(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})", raw)
     if m:
         try:
@@ -285,7 +251,7 @@ def _parse_date(value, expected_type: str = "date") -> str | None:
         except ValueError:
             pass
 
-    # 4) Regex extraction: find MM/DD/YYYY patterns
+    # extract mm/dd/yyyy
     m = re.search(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})", raw)
     if m:
         try:
@@ -298,9 +264,7 @@ def _parse_date(value, expected_type: str = "date") -> str | None:
     return raw  # return original rather than discarding
 
 
-# =====================================================================
-# NUMBER PARSING
-# =====================================================================
+# number parsing
 
 _NUMERIC_NOISE = re.compile(r"[^\d.\-eE+]")
 _PERCENT_RE = re.compile(r"^[+\-]?\s*[\d,]+\.?\d*\s*%$")
@@ -308,7 +272,7 @@ _CURRENCY_RE = re.compile(r"^[\u00a3$\u20ac\u00a5\u20b9\u20bd\u20a9]\s*[\d,]+\.?
 
 
 def _parse_int(value) -> int:
-    """Best-effort integer coercion."""
+    # coerce to int
     if isinstance(value, bool):
         return int(value)
     if isinstance(value, int):
@@ -330,7 +294,7 @@ def _parse_int(value) -> int:
 
 
 def _parse_float(value) -> float:
-    """Best-effort float coercion."""
+    # coerce to float
     if isinstance(value, bool):
         return float(value)
     if isinstance(value, (int, float)):
@@ -349,16 +313,14 @@ def _parse_float(value) -> float:
         return 0.0
 
 
-# =====================================================================
-# BOOLEAN PARSING
-# =====================================================================
+# boolean parsing
 
 _TRUTHY = {"true", "yes", "1", "on", "t", "y", "active", "enabled", "available", "open", "approved"}
 _FALSY = {"false", "no", "0", "off", "f", "n", "inactive", "disabled", "unavailable", "closed", "rejected"}
 
 
 def _parse_bool(value) -> bool:
-    """Best-effort boolean coercion."""
+    # coerce to bool
     if isinstance(value, bool):
         return value
     if _is_null(value):
@@ -374,12 +336,10 @@ def _parse_bool(value) -> bool:
         return False
 
 
-# =====================================================================
-# STRING PARSING
-# =====================================================================
+# string parsing
 
 def _clean_string(value) -> str:
-    """Normalize a string value: trim, collapse whitespace, strip stray quotes."""
+    # clean string
     if _is_null(value):
         return ""
     s = str(value).strip()
@@ -391,9 +351,7 @@ def _clean_string(value) -> str:
     return s
 
 
-# =====================================================================
-# SMART TYPE INFERENCE - for chat download where columns aren't typed
-# =====================================================================
+# type inference
 
 _DATE_LIKE_NAMES = {
     "date", "datetime", "timestamp", "created_at", "updated_at",
@@ -421,10 +379,10 @@ _DATE_VALUE_RE = re.compile(
 
 
 def infer_column_type(name: str, sample_values: list) -> str:
-    """Infer the best column type from name and sample values."""
+    # infer col type
     name_lower = name.lower().strip().replace(" ", "_")
 
-    # Name-based inference (highest priority)
+    # name inference
     if _ID_LIKE.match(name_lower):
         return "Number"
     if name_lower in _DATE_LIKE_NAMES or "date" in name_lower or "time" in name_lower:
@@ -438,15 +396,13 @@ def infer_column_type(name: str, sample_values: list) -> str:
         "distance", "area", "percentage",
     )):
         return "Float"
-    # Use word-boundary matching to avoid false positives like "country" matching "count"
-    int_keywords = ("age", "quantity", "year", "population", "num_", "number_of", "total_")
-    # "count" only matches as a standalone word or prefix (e.g. count, count_of) not inside words like "country"
+    # word boundaries
     if any(kw in name_lower for kw in int_keywords):
         return "Number"
     if re.search(r"(?:^|_)count(?:_|$)", name_lower):
         return "Number"
 
-    # Value-based inference
+    # value inference
     non_null = [v for v in sample_values if not _is_null(v)]
     if not non_null:
         return "String"
@@ -469,25 +425,10 @@ def infer_column_type(name: str, sample_values: list) -> str:
     return "String"
 
 
-# =====================================================================
-# PUBLIC API - normalize with known schema
-# =====================================================================
+# public api
 
 def normalize_records(records: list, columns: list) -> list:
-    """Normalize and coerce every cell in *records* to match the column schema.
-
-    - Strips unexpected fields
-    - Fills missing fields with type-appropriate defaults
-    - Coerces each value to the declared type
-    - Never rejects a row -- always returns best-effort data
-
-    Args:
-        records: list of dicts from AI/JSON output
-        columns: list of {"name": str, "type": str}
-
-    Returns:
-        list of cleaned dicts
-    """
+    # normalize with schema
     if not records or not columns:
         return records or []
 
@@ -530,22 +471,10 @@ def normalize_records(records: list, columns: list) -> list:
     return cleaned
 
 
-# =====================================================================
-# PUBLIC API - normalize with inferred schema (chat download)
-# =====================================================================
+# public inferred api
 
 def normalize_records_inferred(records: list) -> tuple:
-    """Normalize records when no explicit column schema is available.
-
-    Infers column types from names + sample values, then normalizes.
-
-    Args:
-        records: list of dicts from AI/JSON output
-
-    Returns:
-        (normalized_records, inferred_columns)
-        where inferred_columns = [{"name": str, "type": str}, ...]
-    """
+    # normalize inferred
     if not records:
         return [], []
 

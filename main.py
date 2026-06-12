@@ -2,10 +2,10 @@ import sys
 import logging
 from pathlib import Path
 
-# ensure backend dir is on path
+# add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# ── Configure root logger ──────────────────────────────────────────
+# set up logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)-25s | %(message)s",
@@ -30,7 +30,7 @@ settings = get_settings()
 
 app = FastAPI(title="DataForgeAI", version="1.0.0")
 
-# ── Global exception handler ───────────────────────────────────────
+# catch all unhandled errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(
@@ -46,7 +46,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"success": False, "data": None, "error": "Internal server error. Please try again later."},
     )
 
-# CORS
+# allowed frontend origins
 origins = [
     "http://localhost:8080",
     "http://localhost:5173",
@@ -63,7 +63,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# routers
+# register all routers
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(generator_router)
@@ -77,7 +77,7 @@ app.include_router(usage_router)
 def on_startup():
     logger.info("Starting DataForgeAI backend...")
 
-    # ── Validate critical settings ─────────────────────────────────
+    # warn on bad config
     if settings.JWT_SECRET == "change-me":
         logger.warning("[CONFIG] JWT_SECRET is still the default 'change-me' — change it in production!")
     if not settings.GROQ_API_KEY:
@@ -87,7 +87,7 @@ def on_startup():
     if not settings.APPWRITE_PROJECT_ID or not settings.APPWRITE_API_KEY:
         logger.warning("[CONFIG] Appwrite credentials missing — using dev fallback (local storage / mock auth).")
 
-    # ── Database ───────────────────────────────────────────────────
+    # connect and verify db
     try:
         from database.base import Base
         from database.session import engine
@@ -99,7 +99,7 @@ def on_startup():
                      settings.DATABASE_HOST, settings.DATABASE_PORT,
                      type(exc).__name__, exc)
 
-    # ── Redis ──────────────────────────────────────────────────────
+    # ping redis connection
     try:
         from rate_limit.redis_client import get_redis
         get_redis().ping()

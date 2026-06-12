@@ -9,10 +9,10 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health")
 def health_check():
-    """Basic health check."""
+    # basic health check
     status = {"status": "healthy", "database": "unknown", "redis": "unknown"}
 
-    # check db
+    # check database
     try:
         from sqlalchemy import text
         from database.session import engine
@@ -23,7 +23,7 @@ def health_check():
         status["database"] = "disconnected"
         logger.warning("[HEALTH] PostgreSQL health check failed: %s: %s", type(e).__name__, e)
 
-    # check redis
+    # check redis db
     try:
         from rate_limit.redis_client import get_redis
         get_redis().ping()

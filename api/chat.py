@@ -23,7 +23,7 @@ logger = logging.getLogger("dataforge.api.chat")
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
-HISTORY_LIMIT = 12  # max messages to include as context
+HISTORY_LIMIT = 12  # max context messages
 
 
 class SendRequest(BaseModel):
@@ -32,13 +32,13 @@ class SendRequest(BaseModel):
     model: Optional[str] = None
     data_format: Optional[str] = "JSON"
     data_mode: Optional[str] = "Synthetic"
-    images: Optional[list[str]] = None  # list of base64-encoded images
-    web_search: bool = False  # whether to use web search
+    images: Optional[list[str]] = None  # base64 images
+    web_search: bool = False  # use web search
 
 
 class DownloadFromChatRequest(BaseModel):
     format: str = "json"
-    rows: int = 20  # default 20; overridden by what user said in chat
+    rows: int = 20  # rows from chat
     source: str = "AI"
     model_id: Optional[str] = None
     data_mode: str = "synthetic"
@@ -54,7 +54,7 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
     """Send message and get SSE streamed response. Every response includes a 5-row table."""
     model_id = req.model or DEFAULT_CHAT_MODEL
 
-    # per-user daily query limit
+    # check user query limit
     try:
         check_query_limit(user_id)
     except RateLimitError as exc:
@@ -63,7 +63,7 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
             yield f"data: {json.dumps({'type': 'error', 'content': str(exc)})}".encode() + b"\n\n"
         return StreamingResponse(user_limit_stream(), media_type="text/event-stream", status_code=200)
 
-    # global rate limit (INCR-first, no user_id)
+    # global model rate limit
     rate_error = check_and_record(model_id)
     if rate_error:
         logger.warning("[CHAT SEND] Rate limit hit for model '%s' (type=%s)", model_id, rate_error.get('type'))
@@ -71,7 +71,7 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
             yield f"data: {json.dumps({'type': 'error', 'content': rate_error['message']})}".encode() + b"\n\n"
         return StreamingResponse(rate_limit_stream(), media_type="text/event-stream", status_code=200)
 
-    # get or create chat
+    # fetch or create chat
     chat = None
     if req.chat_id:
         chat = db.query(Chat).filter(Chat.id == req.chat_id, Chat.user_id == user_id).first()
@@ -88,30 +88,30 @@ async def send_message(req: SendRequest, user_id: str = Depends(require_auth_coo
         db.add(chat)
         db.commit()
 
-    # save user message
+    # save user's message
     user_msg = Message(id=uuid.uuid4(), chat_id=chat.id, role=MessageRole.user, content=req.message)
     db.add(user_msg)
     db.commit()
 
-    # load history
+    # trim to recent messages
     history = db.query(Message).filter(Message.chat_id == chat.id).order_by(Message.created_at).all()
     history = history[-HISTORY_LIMIT:]
 
-    # normalize generation mode — compound forces live_data
+    # normalize generation mode
     generation_mode = (req.data_mode or "synthetic").lower().replace("-", "_")
     if generation_mode == "real_time":
         generation_mode = "realistic"
     if is_compound_model(model_id):
         generation_mode = "live_data"
 
-    # build system prompt via PromptBuilder (rebuilt every request, never stored)
+    # build prompt for request
     system_prompt = build_system_prompt("chat_preview", generation_mode, model_id)
 
     llm_messages = [{"role": "system", "content": system_prompt}]
     for msg in history:
         llm_messages.append({"role": msg.role.value, "content": msg.content})
 
-    # multimodal: if images provided and model supports vision
+    # attach images if supported
     model_info = MODEL_CONFIG.get(model_id, {})
     if req.images and model_info.get("vision"):
         content_parts = [{"type": "text", "text": req.message}]
@@ -192,12 +192,12 @@ def download_from_chat(
         logger.warning("[CHAT DOWNLOAD] Chat '%s' has no messages", chat_id)
         return error_response("No messages in chat")
 
-    # Build chat history as plain dicts for the LLM
+    # convert messages for LLM
     chat_history = []
     for msg in db_messages:
         chat_history.append({"role": msg.role.value, "content": msg.content})
 
-    # Determine data mode — compound forces live_data
+    # normalize data mode
     data_mode = req.data_mode or (chat.data_mode or "synthetic").lower()
     if data_mode == "real-time":
         data_mode = "realistic"
@@ -205,17 +205,17 @@ def download_from_chat(
     if is_compound_model(model_id_for_gen):
         data_mode = "live-data"
 
-    # per-user daily dataset limit
+    # check daily dataset limit
     try:
         check_dataset_limit(user_id)
     except RateLimitError as exc:
         logger.warning("[CHAT DOWNLOAD] User '%s' hit daily dataset limit", user_id)
         return error_response(str(exc), 429)
 
-    # Build context string for table name derivation
+    # get title for table name
     context = chat.title or ""
 
-    # Pass full chat history to LLM — it decides rows/columns from conversation
+    # generate from full history
     try:
         result = generate_dataset_from_chat(
             chat_messages=chat_history,
@@ -253,7 +253,7 @@ def download_from_chat(
         db=db,
     )
 
-    # Flatten: put formatted content directly in "data", metadata at top level
+    # flatten result for response
     return {
         "success": True,
         "data": result["data"],
@@ -342,7 +342,7 @@ def delete_chat(chat_id: str, user_id: str = Depends(require_auth_cookie), db: S
     if not chat:
         return error_response("Chat not found", 404)
 
-    # soft delete — archive to deleted_chats
+    # soft delete to archive
     messages = db.query(Message).filter(Message.chat_id == chat.id).order_by(Message.created_at).all()
     messages_data = [{"role": m.role.value, "content": m.content, "show_download": m.show_download} for m in messages]
 

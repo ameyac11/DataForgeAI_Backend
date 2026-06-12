@@ -29,7 +29,7 @@ def verify_token(token: str) -> dict | None:
 
 
 def set_auth_cookies(response: Response, user_id: str):
-    """Set access + refresh tokens as httponly cookies."""
+    # set http cookies
     access = create_access_token(user_id)
     refresh = create_refresh_token(user_id)
 

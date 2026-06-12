@@ -51,7 +51,7 @@ class ColumnSuggestRequest(BaseModel):
 
 @router.post("/preview")
 def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
-    """Generate 5-row preview. Always returns JSON list."""
+    # gen 5-row preview
     if not req.columns:
         logger.warning("[PREVIEW] Empty columns list from user '%s'", user_id)
         return error_response("No columns provided")
@@ -87,7 +87,7 @@ def preview(req: PreviewRequest, user_id: str = Depends(require_auth_cookie)):
 
 @router.post("/download")
 def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), db: Session = Depends(get_db)):
-    """Generate full dataset up to 1000 rows."""
+    # generate full dataset
     if not req.columns:
         logger.warning("[DOWNLOAD] Empty columns list from user '%s'", user_id)
         return error_response("No columns provided")
@@ -95,7 +95,7 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
         logger.warning("[DOWNLOAD] Invalid row count %d from user '%s'", req.rows, user_id)
         return error_response(f"Rows must be between 1 and {MAX_ROWS}")
 
-    # per-user daily dataset limit
+    # check daily limit
     try:
         check_dataset_limit(user_id)
     except RateLimitError as exc:
@@ -104,11 +104,11 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
 
     cols = [{"name": c.name, "type": c.type} for c in req.columns]
 
-    # rate limit check for AI mode (global, no user_id)
+    # check AI rate limit
     if req.source.upper() == "AI" and req.model_id:
         enforce_rate_limit(req.model_id)
 
-    # normalize mode — compound forces live-data
+    # setup data mode
     data_mode = req.data_mode.lower() if req.data_mode else "synthetic"
     if data_mode == "real-time":
         data_mode = "realistic"
@@ -138,7 +138,7 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
             return error_response("Model timed out. Please try again.", 504)
         return error_response("Dataset generation failed. Please try again.")
 
-    # Auto-save dataset
+    # save generated dataset
     from api.datasets import auto_save_dataset
     dataset_name = req.dataset_name or (req.context[:100] if req.context else "Generated Dataset")
     save_result = auto_save_dataset(
@@ -151,7 +151,7 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
         db=db,
     )
 
-    # Flatten: put formatted content directly in "data", metadata at top level
+    # format for response
     return {
         "success": True,
         "data": result["data"],
@@ -164,7 +164,7 @@ def download(req: DownloadRequest, user_id: str = Depends(require_auth_cookie), 
 
 @router.post("/columns")
 def columns(req: ColumnSuggestRequest, user_id: str = Depends(require_auth_cookie)):
-    """AI-powered column suggestion for a topic."""
+    # get column suggestions
     if not req.topic:
         return error_response("Topic is required")
     if not req.available_types:

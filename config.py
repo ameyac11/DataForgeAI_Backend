@@ -4,25 +4,25 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    # database
+    # db settings
     DATABASE_HOST: str = "localhost"
     DATABASE_PORT: int = 5432
     DATABASE_NAME: str = "dataforge"
     DATABASE_USER: str = "postgres"
     DATABASE_PASSWORD: str = ""
 
-    # redis
+    # redis settings
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str = ""
 
-    # appwrite
+    # appwrite storage settings
     APPWRITE_ENDPOINT: str = "https://cloud.appwrite.io/v1"
     APPWRITE_PROJECT_ID: str = ""
     APPWRITE_API_KEY: str = ""
     APPWRITE_BUCKET_ID: str = ""
 
-    # jwt
+    # jwt token settings
     JWT_SECRET: str = "change-me"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     COOKIE_DOMAIN: str = "localhost"
     ENV: str = "dev"
 
-    # oauth
+    # oauth provider settings
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GITHUB_CLIENT_ID: str = ""
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:8080"
     BACKEND_URL: str = "http://localhost:8000"
 
-    # llm
+    # llm api keys
     GROQ_API_KEY: str = ""
     GITHUB_TOKEN: str = ""
 

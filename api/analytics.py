@@ -72,7 +72,7 @@ async def upload_file(
     user_id: str = Depends(require_auth_cookie),
     db: Session = Depends(get_db),
 ):
-    """Upload a dataset and get a session ID back."""
+    # handle file upload
     cleanup_expired()
 
     limited = _check_limit(user_id, "upload")

@@ -23,7 +23,7 @@ MAX_FILE_SIZE = 2_097_152  # 2MB in bytes
 
 @router.get("")
 def list_datasets(user_id: str = Depends(require_auth_cookie), db: Session = Depends(get_db)):
-    """List all datasets for the authenticated user."""
+    # list user datasets
     datasets = db.query(UserDataset).filter(
         UserDataset.user_id == user_id
     ).order_by(UserDataset.created_at.desc()).all()
@@ -52,7 +52,7 @@ def download_dataset(
     user_id: str = Depends(require_auth_cookie),
     db: Session = Depends(get_db),
 ):
-    """Download a dataset file from storage."""
+    # download dataset file
     dataset = db.query(UserDataset).filter(
         UserDataset.id == dataset_id,
         UserDataset.user_id == user_id,
@@ -65,7 +65,7 @@ def download_dataset(
     try:
         content = download_file(str(dataset.id))
 
-        # Determine content type from file path
+        # set content type
         ext = dataset.file_path.split(".")[-1].lower() if "." in dataset.file_path else "json"
         content_types = {
             "json": "application/json",
@@ -95,7 +95,7 @@ def delete_dataset(
     user_id: str = Depends(require_auth_cookie),
     db: Session = Depends(get_db),
 ):
-    """Delete a dataset (file + metadata)."""
+    # delete dataset completely
     dataset = db.query(UserDataset).filter(
         UserDataset.id == dataset_id,
         UserDataset.user_id == user_id,
@@ -105,14 +105,14 @@ def delete_dataset(
         logger.warning("[DATASET DELETE] Dataset '%s' not found for user '%s'", dataset_id, user_id)
         return error_response("Dataset not found", 404)
 
-    # 1. Delete file from storage
+    # delete from storage
     try:
         delete_file(str(dataset.id))
     except Exception as e:
         logger.error("[DATASET DELETE] Failed to delete file from storage for dataset '%s': %s: %s",
                      dataset_id, type(e).__name__, e)
 
-    # 2. Delete row from PostgreSQL
+    # delete from db
     try:
         db.delete(dataset)
         db.commit()
@@ -135,11 +135,9 @@ def auto_save_dataset(
     data_mode: str,
     db: Session,
 ) -> dict:
-    """Auto-save generated dataset after generation.
-    Returns dict with save_status, save_message, dataset_id.
-    """
+    # auto save generated dataset
 
-    # 1. Serialize data to bytes
+    # serialize data
     if fmt == "json":
         if isinstance(data, list):
             content = json.dumps(data, indent=2).encode("utf-8")
@@ -156,7 +154,7 @@ def auto_save_dataset(
 
     file_size = len(content)
 
-    # 2. Check file size (2MB limit)
+    # check file size
     if file_size > MAX_FILE_SIZE:
         return {
             "save_status": "size_exceeded",
@@ -164,7 +162,7 @@ def auto_save_dataset(
             "dataset_id": None,
         }
 
-    # 3. Check user dataset count
+    # check user limits
     count = db.query(func.count(UserDataset.id)).filter(
         UserDataset.user_id == user_id
     ).scalar() or 0
@@ -176,7 +174,7 @@ def auto_save_dataset(
             "dataset_id": None,
         }
 
-    # 4. Upload to storage
+    # upload to storage
     dataset_id = str(uuid.uuid4())
     ext = fmt if fmt != "parquet" else "parquet"
     file_path = f"datasets/{user_id}/{dataset_id}.{ext}"
@@ -191,7 +189,7 @@ def auto_save_dataset(
             "dataset_id": None,
         }
 
-    # 5. Insert metadata into PostgreSQL
+    # insert into db
     dataset = UserDataset(
         id=uuid.UUID(dataset_id),
         user_id=uuid.UUID(user_id) if isinstance(user_id, str) else user_id,

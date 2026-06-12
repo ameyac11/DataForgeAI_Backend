@@ -1,4 +1,4 @@
-"""Groq LLM Provider — all limits/model-names come from model_config.py."""
+# groq llm provider
 import os
 import logging
 from groq import Groq
@@ -13,8 +13,7 @@ from llm.model_config import (
 logger = logging.getLogger("dataforge.llm.groq")
 settings = get_settings()
 
-# compound_custom payload — enable only the web_search tool
-COMPOUND_TOOLS = {"tools": {"enabled_tools": ["web_search", "visit_website"]}}
+# custom tools for compound
 
 
 def _get_client() -> Groq:
@@ -22,13 +21,12 @@ def _get_client() -> Groq:
 
 
 async def stream_completion(messages: list, model_id: str):
-    """Async generator yielding text chunks via Groq streaming.
-    Compound models always get internet tools via compound_custom."""
+    # stream response chunks
     client = _get_client()
     model_name = get_api_model_name(model_id)
     _balanced = BEHAVIOR_MODES["balanced"]
 
-    # max_tokens from centralized config
+    # max output tokens
     max_tokens = get_max_output_tokens(model_id)
 
     kwargs = {
@@ -88,7 +86,7 @@ def generate_completion(messages: list, model_id: str, temperature: float = 0.5,
         if effort:
             kwargs["reasoning_effort"] = effort
 
-        # compound: stream and collect (non-streaming returns empty for tool-call chains)
+        # check if compound model
         if is_compound_model(model_id):
             kwargs["compound_custom"] = COMPOUND_TOOLS
             kwargs["stream"] = True
