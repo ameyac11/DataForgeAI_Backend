@@ -12,7 +12,7 @@ groq==1.0.0
 azure-ai-inference==1.0.0b9
 faker==40.4.0
 pyarrow==23.0.1
-python-multipart==0.0.22
+python-multipart==0.0.31
 python-dateutil==2.9.0.post0
 pandas==3.0.1
 reportlab==4.4.10
